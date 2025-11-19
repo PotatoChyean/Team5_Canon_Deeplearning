@@ -36,23 +36,41 @@ export function ImageUpload({ setIsProcessing, setResults }: any) {
     if (files.length === 0) return
 
     setIsProcessing(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 3000))
 
-    // Generate mock results
-    const mockResults = files.map((file, index) => ({
-      id: index,
-      name: file.name,
-      status: Math.random() > 0.3 ? "PASS" : "FAIL",
-      reason:
-        Math.random() > 0.3
-          ? null
-          : ["Blurred region", "Misalignment", "Defect detected"][Math.floor(Math.random() * 3)],
-      confidence: Math.floor(Math.random() * 40 + 60),
-    }))
+    try {
+      const formData = new FormData()
+      files.forEach((file) => {
+        formData.append("files", file)
+      })
 
-    setResults(mockResults)
-    setIsProcessing(false)
+      // FastAPI 백엔드 호출
+      const response = await fetch("http://localhost:5000/api/analyze-batch", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error(`API 오류: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      const results = data.results.map((result: any, index: number) => ({
+        id: result.id || index,
+        name: result.filename,
+        status: result.status,
+        reason: result.reason || null,
+        confidence: result.confidence || 0,
+        timestamp: result.timestamp,
+        details: result.details || {}, // 상세 정보 포함
+      }))
+
+      setResults(results)
+    } catch (error) {
+      console.error("분석 중 오류 발생:", error)
+      alert("분석 중 오류가 발생했습니다. 백엔드 서버가 실행 중인지 확인하세요.")
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleRemoveFile = (index: number) => {
@@ -66,18 +84,25 @@ export function ImageUpload({ setIsProcessing, setResults }: any) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
-          isDragging ? "border-blue-500 bg-blue-500/10" : "border-slate-600 bg-slate-800/30 hover:border-slate-500"
-        }`}
+        className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${isDragging ? "border-blue-500 bg-blue-500/10" : "border-slate-600 bg-slate-800/30 hover:border-slate-500"
+          }`}
       >
         <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-white mb-2">Upload Image Folder</h3>
         <p className="text-slate-400 mb-6">Drag and drop your images here or click below to select files</p>
-        <label className="inline-block">
-          <input type="file" multiple accept="image/*" onChange={handleFileSelect} className="hidden" />
-          <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
-            Select Folder
-          </button>
+        <label
+          // label에 직접 버튼 스타일을 적용합니다.
+          className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors cursor-pointer"
+        >
+          Select Folder
+          {/* <input>은 여전히 숨겨진 채로 <label>의 자식으로 유지됩니다. */}
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
         </label>
       </div>
 

@@ -23,7 +23,7 @@ DB_CONFIG = {
     'user': os.getenv('DB_USER') or "root",
     'password': os.getenv('DB_PASSWORD') or "Jangchaeyean2023!", # 사용자님의 비밀번호
     'database': os.getenv('DB_NAME') or "testdb",
-    'connection_limit': 10,
+    'pool_size': 10,
 }
 
 # Connection Pool 생성 (서버 시작 시 한 번만 생성)
