@@ -4,10 +4,11 @@ YOLO, OCR, CNN 모델을 연결하여 Pass/Fail 판단
 """
 
 import numpy as np
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from PIL import Image
 import pandas as pd
 import os
+import traceback
 from models.yolo_model import YOLOModel
 from models.ocr_model import OCRModel
 from models.cnn_model import CNNModel
@@ -51,28 +52,13 @@ def initialize_models(
     return yolo_model, ocr_model, cnn_model
 
 
+# 🚨 [제거]: JSON 직렬화는 main.py의 app.json_encoders가 담당하므로 
+# convert_numpy_to_python_types 함수는 제거합니다. (원본 코드에 이 함수가 없다고 가정)
+# 만약 이 함수가 남아있다면 반드시 제거해야 합니다!
+
 def analyze_image(image: np.ndarray) -> Dict:
     """
-    이미지 분석 메인 함수 (Flask 코드의 로직과 동일)
-    
-    Args:
-        image: numpy array 형태의 이미지 (H, W, C 또는 H, W)
-        
-    Returns:
-        {
-            "status": "PASS" or "FAIL",
-            "reason": "Fail 사유 (Fail인 경우)",
-            "confidence": 0-100,
-            "details": {
-                "ocr_status": "Pass" or "Fail",
-                "ocr_lang": "ko" or "en" or ...,
-                "yolo_status": "Pass" or "Fail",
-                "cnn_status": "Pass" or "Fail",
-                "yolo_detections": [...],
-                "ocr_results": [...],
-                "cnn_results": [...]
-            }
-        }
+    이미지 분석 메인 함수
     """
     # 모델 초기화 확인
     if yolo_model is None or ocr_model is None or cnn_model is None:
@@ -86,7 +72,8 @@ def analyze_image(image: np.ndarray) -> Dict:
             pil_img = Image.fromarray(image, mode='L')
         
         # 1. OCR 언어 탐지 및 텍스트 인식
-        ocr_lang, ocr_status, ocr_boxes = detect_language(pil_img)
+        # detect_language 함수도 이제 raw 결과를 반환해야 합니다.
+        ocr_lang, ocr_status, ocr_boxes = detect_language(pil_img) 
         
         # 2. YOLO 객체 검출
         yolo_results = yolo_model.detect(image)
@@ -103,6 +90,9 @@ def analyze_image(image: np.ndarray) -> Dict:
                 continue
             
             bbox = detection["bbox"]  # [x1, y1, x2, y2]
+            # BBox를 float으로 명시적 변환하여 사용 (타입 충돌 최소화)
+            bbox = [float(x) for x in bbox] 
+            
             crop = pil_img.crop((bbox[0], bbox[1], bbox[2], bbox[3]))
             
             prob, is_pass = cnn_model.predict_roi(crop, cls_name)
@@ -110,8 +100,8 @@ def analyze_image(image: np.ndarray) -> Dict:
             
             cnn_results.append({
                 "class": cls_name,
-                "bbox": bbox,
-                "probability": prob,
+                "bbox": bbox, 
+                "probability": float(prob), # float으로 명시적 변환
                 "status": "Pass" if is_pass else "Fail"
             })
         
@@ -124,6 +114,15 @@ def analyze_image(image: np.ndarray) -> Dict:
         
         # 5. CNN 판정
         cnn_ok = all(roi_pass_list) if roi_pass_list else False
+        
+        # 🚨 [디버그 로그]: CNN 실패 시 상세 정보 출력 (이전 대화에서 추가 요청한 내용 유지)
+        if not cnn_ok:
+            print("-" * 50)
+            print("🚨 CNN 검증 실패 발생!")
+            for result in cnn_results:
+                if result.get('status') == 'Fail': 
+                    print(f"  실패 객체: {result.get('class')}, Prob: {result.get('probability')}")
+            print("-" * 50)
         
         # 6. 최종 판정
         final_status = "PASS" if (ocr_status == "Pass" and yolo_ok and cnn_ok) else "FAIL"
@@ -139,19 +138,20 @@ def analyze_image(image: np.ndarray) -> Dict:
         
         reason = "; ".join(reasons) if reasons else None
         
-        # 8. 신뢰도 계산
+        # 8. 신뢰도 계산 (모두 float으로 처리)
         confidence_scores = []
         for detection in yolo_results.get("detections", []):
-            confidence_scores.append(detection.get("confidence", 0) * 100)
+            confidence_scores.append(float(detection.get("confidence", 0) * 100)) 
         for cnn_result in cnn_results:
             confidence_scores.append(cnn_result.get("probability", 0) * 100)
         
         avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
         
-        return {
+        # 9. 최종 반환 딕셔너리 생성
+        raw_output = {
             "status": final_status,
             "reason": reason,
-            "confidence": round(avg_confidence, 2),
+            "confidence": round(float(avg_confidence), 2), # float으로 명시적 변환
             "details": {
                 "ocr_status": ocr_status,
                 "ocr_lang": ocr_lang,
@@ -163,6 +163,9 @@ def analyze_image(image: np.ndarray) -> Dict:
                 "detected_classes": detected_classes
             }
         }
+        
+        # 🚨 [핵심 수정]: 시스템 인코더를 믿고 raw_output을 그대로 반환합니다.
+        return raw_output 
     
     except Exception as e:
         import traceback
@@ -170,7 +173,7 @@ def analyze_image(image: np.ndarray) -> Dict:
         return {
             "status": "FAIL",
             "reason": f"분석 중 오류 발생: {str(e)}",
-            "confidence": 0,
+            "confidence": 0.0,
             "details": {}
         }
 
@@ -184,13 +187,7 @@ def analyze_frame(image: np.ndarray) -> Dict:
 
 def detect_language(img: Image.Image) -> tuple:
     """
-    OCR 언어 탐지 및 텍스트 인식 (Flask 코드의 detect_language 함수와 동일)
-    
-    Args:
-        img: PIL Image (그레이스케일)
-        
-    Returns:
-        (lang, status, ocr_boxes): 언어, Pass/Fail 상태, OCR 결과 박스
+    OCR 언어 탐지 및 텍스트 인식
     """
     global ocr_table
     
@@ -199,7 +196,6 @@ def detect_language(img: Image.Image) -> tuple:
     
     img_np = np.array(img)
     
-    # 각 언어별로 OCR 수행
     if not hasattr(ocr_model, 'readers') or not ocr_model.readers:
         return "Nonlingual", "Pass", []
     
@@ -209,6 +205,10 @@ def detect_language(img: Image.Image) -> tuple:
             continue
         
         try:
+            has_group0 = False
+            has_xor = False
+            xor_multi = False
+            
             results = reader.readtext(
                 img_np, 
                 detail=1, 
@@ -227,7 +227,6 @@ def detect_language(img: Image.Image) -> tuple:
             if matched.empty:
                 continue
             
-            # group 판정
             group0_terms = subset[subset['group'] == 0]['term'].tolist()
             has_group0 = all(term in recognized for term in group0_terms)
             
@@ -235,11 +234,12 @@ def detect_language(img: Image.Image) -> tuple:
             has_xor = any(term in recognized for term in group1_terms)
             xor_multi = sum(term in recognized for term in group1_terms) > 1
             
+            # 🚨 [핵심 수정]: OCR 결과도 이제 시스템 인코더가 처리하도록 raw results를 반환
             if has_group0 and has_xor and not xor_multi:
                 return lang, "Pass", results
             else:
                 return lang, "Fail", results
-        
+            
         except Exception as e:
             print(f"OCR 언어 {lang} 탐지 오류: {e}")
             continue

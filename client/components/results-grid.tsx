@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle, AlertCircle } from "lucide-react"
+import { CheckCircle, AlertCircle, File as FileIcon } from "lucide-react"
 
 export function ResultsGrid({ results }: any) {
   if (results.length === 0) {
@@ -34,8 +34,14 @@ export function ResultsGrid({ results }: any) {
                 <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_30%,rgba(255,255,255,.1)_50%,transparent_70%)]"></div>
               </div>
               <div className="text-center z-10">
-                <File className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                <p className="text-xs text-slate-500">Preview</p>
+                {result.previewUrl ? (
+                  <img src={result.previewUrl} alt={result.name} className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <FileIcon className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                )}
+                <p className="text-xs text-slate-500 z-20 absolute bottom-2 left-1/2 transform -translate-x-1/2">
+                  {result.previewUrl ? '' : 'No Preview'}
+                </p>
               </div>
             </div>
 
@@ -59,10 +65,12 @@ export function ResultsGrid({ results }: any) {
                 )}
               </div>
 
-              {result.reason && (
-                <p className="text-xs text-slate-400 bg-slate-900/50 px-2 py-1 rounded">{result.reason}</p>
+              {result.reason != null && (
+                <p className="text-xs text-slate-400 bg-slate-900/50 px-2 py-1 rounded">
+                  {/* reason 값이 빈 문자열일 때 "N/A" 표시 */}
+                  {result.reason || "N/A (사유 없음)"}
+                </p>
               )}
-
               <div className="flex items-center justify-between pt-2 border-t border-slate-700">
                 <span className="text-xs text-slate-500">Confidence</span>
                 <span className="text-sm font-semibold text-cyan-400">{result.confidence}%</span>

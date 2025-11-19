@@ -20,6 +20,7 @@ POOL_NAME = "analysis_pool"
 # 환경 변수에서 DB 정보 가져오기
 DB_CONFIG = {
     'host': os.getenv('DB_HOST') or "127.0.0.1",
+    'port': int(os.getenv('DB_PORT') or 3306),
     'user': os.getenv('DB_USER') or "root",
     'password': os.getenv('DB_PASSWORD') or "Jangchaeyean2023!", # 사용자님의 비밀번호
     'database': os.getenv('DB_NAME') or "testdb",
@@ -30,7 +31,6 @@ DB_CONFIG = {
 try:
     db_pool = mysql.connector.pooling.MySQLConnectionPool(
         pool_name=POOL_NAME,
-        pool_size=DB_CONFIG['connection_limit'],
         **DB_CONFIG
     )
     print(f"MySQL Connection Pool '{POOL_NAME}' 생성 완료.")
@@ -44,7 +44,7 @@ def get_connection():
     if db_pool is None:
         raise Exception("MySQL 연결 풀이 초기화되지 않았습니다.")
     # dictionary=True를 사용하여 결과 행을 딕셔너리 형태로 받습니다 (SQLite의 row_factory=sqlite3.Row와 유사).
-    return db_pool.get_connection(dictionary=True)
+    return db_pool.get_connection()
 
 
 def init_db():
@@ -54,7 +54,7 @@ def init_db():
         return
         
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     
     # SQLite 테이블 정의를 MySQL 문법에 맞게 수정 (AUTOINCREMENT -> AUTO_INCREMENT)
     cursor.execute("""
