@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, Dispatch, SetStateAction } from "react"
+// 필요한 컴포넌트 Import
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Navigation } from "@/components/navigation"
@@ -12,10 +13,8 @@ import { SummaryAnalytics } from "@/components/summary-analytics"
 // 사이드바 탭 타입 정의
 type SidebarTab = "upload" | "live" | "results" | "summary";
 
-// 🚨 [필수]: SidebarProps 인터페이스 정의 (타입 충돌 방지)
+// SidebarProps 인터페이스 정의 (타입 충돌 방지)
 interface SidebarProps {
-    activeTab: SidebarTab; 
-    setActiveTab: Dispatch<SetStateAction<SidebarTab>>;
     isCollapsed: boolean; 
     setIsCollapsed: Dispatch<SetStateAction<boolean>>;
 }
@@ -29,7 +28,7 @@ export default function Dashboard() {
     
     // 진행률 관리를 위한 상태
     const [processingCount, setProcessingCount] = useState<number>(0)
-    const [totalFiles, setTotalFiles] = useState<number>(0)          
+    const [totalFiles, setTotalFiles] = useState<number>(0)           
 
     const paddingClass = isCollapsed ? 'pl-16' : 'pl-64';
 
@@ -44,24 +43,23 @@ export default function Dashboard() {
     const handleResultsReady = (newResults: any[]) => {
         setResults(newResults);
         setIsProcessing(false);
-        setProcessingCount(totalFiles); 
-        setActiveTab('results');
+        setProcessingCount(totalFiles); // 완료 카운트를 총 파일 수로 설정
+        setActiveTab('results'); // 결과 탭으로 자동 전환
     };
 
     return (
-        <div className="flex h-screen bg-slate-950 relative">
+        // 🚨 [수정]: 최상위 div에서 테마 전환을 방해하던 bg-slate-950 하드코딩 색상을 제거했습니다.
+        <div className="flex h-screen relative">
             
-            {/* 🚨 Sidebar 연결 (SidebarProps 오류 해결을 위한 전달) */}
+            {/* 1. Sidebar 연결 */}
             <Sidebar 
-                activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
                 isCollapsed={isCollapsed} 
                 setIsCollapsed={setIsCollapsed} 
             />
 
             <div className={`flex-1 flex flex-col transition-all duration-300 ${paddingClass}`}>
                 
-                {/* 🚨 TopBar 연결 (진행률 표시) */}
+                {/* 2. TopBar 연결 (진행률 표시 Props 완벽하게 전달) */}
                 <TopBar 
                     isProcessing={isProcessing} 
                     completedCount={processingCount} 
@@ -70,9 +68,10 @@ export default function Dashboard() {
                 
                 <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
                 
-                <main className="flex-1 overflow-auto bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-6">
+                {/* 🚨 [수정]: 메인 콘텐츠 영역의 하드코딩된 그라데이션을 제거하고 CSS 변수로 대체했습니다. */}
+                <main className="flex-1 overflow-auto bg-background p-6">
                     
-                    {/* 🚨 ImageUpload 연결 (모든 props 전달) */}
+                    {/* 3. ImageUpload 연결 (모든 props 전달) */}
                     {activeTab === "upload" && (
                         <ImageUpload 
                             setResults={handleResultsReady} 
@@ -83,11 +82,13 @@ export default function Dashboard() {
                         />
                     )}
                     
-                    {activeTab === "live" && <LiveCamera setIsProcessing={setIsProcessing} />}
+                    {activeTab === "live" && <LiveCamera 
+                    setIsProcessing={setIsProcessing}
+                    setResults={setResults} />}
                     {activeTab === "results" && <ResultsGrid results={results} />}
                     {activeTab === "summary" && <SummaryAnalytics results={results} />}
                 </main>
             </div>
         </div>
-    );
+    )
 }

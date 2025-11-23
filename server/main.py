@@ -24,6 +24,25 @@ torch_dll_path = r"C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation
 
 app = FastAPI(title="Cannon Project API", version="1.0.0")
 
+analysis_progress = {
+    "total_count": 0,
+    "completed_count": 0,
+    "is_running": False
+}
+
+@app.get("/api/analysis-progress")
+async def get_analysis_progress():
+    """프론트엔드 Polling 요청에 현재 분석 진행 상황을 제공"""
+    global analysis_progress
+    
+    # 이 엔드포인트는 진행 상황 객체를 그대로 반환합니다.
+    return {
+        "total_count": analysis_progress["total_count"],
+        "completed_count": analysis_progress["completed_count"],
+        "is_running": analysis_progress["is_running"]
+    }
+
+
 # 서버 시작 시 모델 초기화
 @app.on_event("startup")
 async def startup_event():
@@ -115,14 +134,19 @@ async def analyze_image_endpoint(file: UploadFile = File(...)):
 
 @app.post("/api/analyze-batch")
 async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
+    global analysis_progress
     """
     여러 이미지 파일을 일괄 분석
     """
+    analysis_progress["total_count"] = len(files)
+    analysis_progress["completed_count"] = 0
+    analysis_progress["is_running"] = True
     results = []
     
     for file in files:
         try:
             contents = await file.read()
+            analysis_progress["completed_count"] += 1
             if not contents:
                 results.append({
                     "filename": file.filename,
@@ -131,12 +155,14 @@ async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
                     "confidence": 0
                 })
                 continue
-            
+
             try:
                 image = Image.open(io.BytesIO(contents))
                 if image.mode != 'RGB':
                     image = image.convert('RGB')
+                    
             except Exception as e:
+                analysis_progress["completed_count"] += 1
                 results.append({
                     "filename": file.filename,
                     "status": "ERROR",

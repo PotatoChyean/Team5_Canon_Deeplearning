@@ -4,6 +4,8 @@
 import type React from "react"
 import { Dispatch, SetStateAction } from "react" 
 import { Settings, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Clock } from "lucide-react"
 
 // Props 인터페이스 정의 (상위 컴포넌트에서 전달받을 데이터)
 interface SidebarProps {
@@ -15,7 +17,8 @@ interface SidebarProps {
 function NavItem({ icon, label, isCollapsed }: { icon: React.ReactNode; label: string; isCollapsed: boolean }) {
     return (
         <button
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+            // 🚨 [수정]: 하드코딩된 색상 -> CSS 변수 (bg-sidebar-accent, text-sidebar-foreground)로 변경
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-white transition-colors"
             title={isCollapsed ? label : undefined}
         >
             {icon}
@@ -33,17 +36,18 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     const widthClass = isCollapsed ? 'w-16' : 'w-64';
 
     return (
-        // 1. 너비 클래스를 동적으로 적용합니다.
+        // 🚨 [수정]: 배경, 테두리 색상 -> CSS 변수 (bg-sidebar, border-sidebar-border)로 변경
         <aside 
             className={`${widthClass} absolute left-0 top-0 bottom-0 z-10 
-            bg-slate-900 border-r border-slate-700 flex flex-col p-4 transition-all duration-300 shadow-lg`}
+            bg-sidebar border-r border-sidebar-border flex flex-col p-4 transition-all duration-300 shadow-lg`}
         >
             
             {/* 🔥 2. 토글 버튼 영역 추가 */}
             <div className={`flex justify-${isCollapsed ? 'center' : 'end'} mb-4 ${!isCollapsed ? 'pr-2' : ''}`}>
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="p-2 rounded-full text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                    // 🚨 [수정]: 하드코딩된 색상 -> CSS 변수 (text-sidebar-foreground)로 변경
+                    className="p-2 rounded-full text-sidebar-foreground/70 hover:bg-sidebar-accent/30 hover:text-white transition-colors"
                     title={isCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
                 >
                     {/* ChevronsRight: 접혀 있을 때 (펼치는 버튼), ChevronsLeft: 펼쳐져 있을 때 (접는 버튼) */}
@@ -73,16 +77,21 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
             {/* 5. 하단 Status 영역: isCollapsed가 false일 때만 보여줍니다. */}
             {!isCollapsed && (
-                <div className="pt-4 border-t border-slate-700">
+                <div className="pt-4 border-t border-sidebar-border">
                     <p className="text-xs text-slate-500 mb-4">Status</p>
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                            <span className="text-sm text-slate-300">System Ready</span>
+                             <span className="text-sm text-sidebar-foreground">System Ready</span>
                         </div>
                     </div>
                 </div>
             )}
+            
+            {/* 6. 사이드바 밑 모드 설정 */}
+            <div className="mt-auto p-4 border-t border-sidebar-border">
+                <ThemeToggle />
+            </div>
         </aside>
     )
 }

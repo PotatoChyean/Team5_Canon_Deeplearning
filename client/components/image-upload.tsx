@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, Dispatch, SetStateAction } from "react" // 🚨 [수정]: useEffect, Dispatch, SetStateAction 임포트
+import { useState, useEffect, Dispatch, SetStateAction } from "react" 
 import { Upload, File as FileIcon } from "lucide-react" 
 import type React from "react"
-import { File } from "lucide-react" // File 아이콘을 위한 기본 임포트 유지
+import { File } from "lucide-react"
 
 // 1. 상태 타입 정의
 type UploadedFileItem = {
@@ -16,8 +16,7 @@ type UploadedFileItem = {
 interface ImageUploadProps {
     setResults: (newResults: any[]) => void;
     onAnalysisStart: (fileCount: number) => void;
-    // 🚨 [필수 추가]: 이 props가 누락되어 오류 발생
-    setProcessingCount: Dispatch<SetStateAction<number>>; 
+    setProcessingCount: Dispatch<SetStateAction<number>>; // 👈 필수 추가
     uploadedCount: number; 
     isProcessing: boolean;
 }
@@ -26,17 +25,15 @@ interface ImageUploadProps {
 export function ImageUpload({ 
     setResults, 
     onAnalysisStart, 
-    setProcessingCount,
-    setCompletedCount,
+    setProcessingCount, // 🚨 [수정]: 이 부분을 추가해야 합니다.
     uploadedCount, 
     isProcessing 
 }: ImageUploadProps) {
     
     const [files, setFiles] = useState<UploadedFileItem[]>([])
     const [isDragging, setIsDragging] = useState(false)
-    // 🚨 [제거]: uploadedCount, completedCount 상태는 Dashboard에서 관리합니다.
-
-
+    // ... (나머지 헬퍼 함수 및 핸들러는 그대로 유지) ...
+    
     // 헬퍼 함수: File 객체를 UploadedFileItem 타입으로 변환
     const mapFilesToUploadedItems = (fileList: File[]): UploadedFileItem[] => {
         return fileList.map(file => ({
@@ -46,8 +43,7 @@ export function ImageUpload({
         }));
     };
     
-    // ... (Drag/Drop 핸들러는 변경 없음) ...
-    
+    // Drag/Drop 핸들러
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault()
         setIsDragging(true)
@@ -73,7 +69,7 @@ export function ImageUpload({
         }
     }
     
-    // 🚨 [추가]: Polling 로직 - 2초마다 진행 상황 체크 (isProcessing, uploadedCount를 props로 사용)
+    // 🚨 [추가]: Polling 로직 (useEffect)
     useEffect(() => {
         let intervalId: NodeJS.Timeout | null = null;
         
@@ -85,16 +81,14 @@ export function ImageUpload({
 
                     const data = await res.json();
                     
-                    setCompletedCount(data.completed_count); // 부모 상태 업데이트
+                    setProcessingCount(data.completed_count); // 부모 상태 업데이트
 
                     if (data.completed_count >= uploadedCount) {
                         if (intervalId) clearInterval(intervalId);
-                        // Polling이 완료되면, 최종 결과 로직은 handleStartAnalysis의 fetch 응답 후 실행됩니다.
                     }
                 } catch (error) {
                     console.error("Polling 중 오류 발생:", error);
                     if (intervalId) clearInterval(intervalId);
-                    // 오류 발생 시 Dashboard에서 isProcessing=false 로직이 필요합니다.
                 }
             }, 2000); 
         }
@@ -104,7 +98,7 @@ export function ImageUpload({
                 clearInterval(intervalId);
             }
         };
-    }, [isProcessing, uploadedCount, setCompletedCount]); // setCompletedCount는 props로 받으므로 의존성 배열에 포함
+    }, [isProcessing, uploadedCount, setProcessingCount]);
 
 
     const handleStartAnalysis = async () => {
@@ -112,7 +106,7 @@ export function ImageUpload({
 
         // 🚨 [핵심]: 분석 시작 전, 부모에 총 파일 수를 알리고 isProcessing=true 트리거
         onAnalysisStart(files.length)
-        setCompletedCount(0); // 시작 카운트 초기화
+        setProcessingCount(0); // 시작 카운트 초기화
 
         try {
             const formData = new FormData()
@@ -132,7 +126,7 @@ export function ImageUpload({
             const data = await response.json()
             
             // 🚨 최종 완료: Polling이 응답 받기 전에 완료 상태를 잡기 위해 강제 설정
-            setCompletedCount(files.length); 
+            setProcessingCount(files.length); 
             
             const results = data.results.map((result: any, index: number) => {
                 const fileItem = files.find(item => item.name === result.filename); 
@@ -149,13 +143,11 @@ export function ImageUpload({
                 };
             });
 
-            // 부모의 handleResultsReady 호출 -> 결과 저장 및 isProcessing=false, 탭 전환
             setResults(results) 
             
         } catch (error) {
             console.error("분석 중 오류 발생:", error)
             alert("분석 중 오류가 발생했습니다. 백엔드 서버가 실행 중인지 확인하세요.")
-            // 오류 발생 시에도 isProcessing을 false로 설정하는 로직이 필요합니다.
         }
     }
 

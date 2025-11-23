@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 from PIL import Image
 import pandas as pd
 import os
+import uuid
 from models.yolo_model import YOLOModel
 from models.ocr_model import OCRModel
 from models.cnn_model import CNNModel
@@ -121,9 +122,10 @@ def analyze_image(image: np.ndarray) -> Dict:
             
             bbox = detection["bbox"]  # [x1, y1, x2, y2]
             crop = pil_img.crop((bbox[0], bbox[1], bbox[2], bbox[3]))
-            
+
             prob, is_pass = cnn_model.predict_roi(crop, cls_name)
             roi_pass_list.append(is_pass)
+            crop.save(f"debug_failed_roi_{cls_name}_{uuid.uuid4()}.png")
             
             cnn_results.append({
                 "class": cls_name,
