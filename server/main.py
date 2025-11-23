@@ -277,13 +277,12 @@ async def get_statistics_endpoint(
     """
     분석 결과 통계 조회
     """
-    try:
-        stats = get_statistics(start_date, end_date)
+    try: # 🚨 [수정]: await asyncio.to_thread를 사용하여 동기 함수를 안전하게 실행
+        stats = await asyncio.to_thread(get_statistics, start_date, end_date) 
         return JSONResponse(content=stats)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"통계 조회 중 오류 발생: {str(e)}")
-
-
+    
 @app.get("/api/results")
 async def get_results_endpoint(
     status: Optional[str] = None,
@@ -294,7 +293,7 @@ async def get_results_endpoint(
     분석 결과 목록 조회
     """
     try:
-        results = get_results(status=status, limit=limit, offset=offset)
+        results = await asyncio.to_thread(get_results, status=status, limit=limit, offset=offset)
         return JSONResponse(content={"results": results})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"결과 조회 중 오류 발생: {str(e)}")
