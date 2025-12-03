@@ -13,14 +13,35 @@ import numpy as np
 from PIL import Image
 import io
 import csv
-import asyncio
-from models.inference import analyze_image, analyze_frame, initialize_models
+from models.yolo_model import YOLOModel
+from models.cnn_model import CNNModel
 import os
+
+import models.inference as inference_module
+from models.inference import analyze_image, analyze_frame, initialize_models
+
 from database.db import save_result, get_statistics, get_results
 
-import os
-
+yolo_model = None
+cnn_model = None
 app = FastAPI(title="Cannon Project API", version="1.0.0")
+
+# 모델 실행 확인
+@app.get("/api/model_status")
+async def get_model_status():
+    """모델 로드 상태를 확인하는 임시 엔드포인트"""
+    global cnn_model, yolo_model
+    
+    status = {
+        "cnn_loaded": inference_module.cnn_model is not None,
+        "yolo_loaded": inference_module.yolo_model is not None
+    }
+    
+    if status["cnn_loaded"]:
+        # 로드된 경우, 모델 타입도 확인
+        status["cnn_type"] = type(inference_module.cnn_model).__name__
+    
+    return status
 
 analysis_progress = {
     "total_count": 0,
