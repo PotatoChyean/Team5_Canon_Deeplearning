@@ -32,7 +32,6 @@ export function ImageUpload({
     
     const [files, setFiles] = useState<UploadedFileItem[]>([])
     const [isDragging, setIsDragging] = useState(false)
-    // ... (나머지 헬퍼 함수 및 핸들러는 그대로 유지) ...
     
     // 헬퍼 함수: File 객체를 UploadedFileItem 타입으로 변환
     const mapFilesToUploadedItems = (fileList: File[]): UploadedFileItem[] => {
@@ -173,17 +172,23 @@ export function ImageUpload({
                     }`}
             >
                 { /* ✅ 수정: text-slate-400 -> text-muted-foreground */ }
-                <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                 { /* ✅ 수정: text-white -> text-foreground */ }
-                <h3 className="text-lg font-semibold text-foreground mb-2">Upload Image Folder</h3>
+                <h3 className="text-lg font-semibold text-slate-400 mb-2">Upload Image Folder</h3>
                 { /* ✅ 수정: text-slate-400 -> text-muted-foreground */ }
                 <p className="text-muted-foreground mb-6">Drag and drop your images here or click below to select files</p>
                 <label
-                    // ✅ 수정: bg-blue-600, hover:bg-blue-700 -> bg-primary, hover:bg-primary, text-white -> text-primary-foreground
-                    className="inline-block px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors cursor-pointer"
+                    // ✅ 수정: bg-primary, hover:bg-primary/90, text-primary-foreground 대신 원래의 클래스 복원
+                    className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors cursor-pointer"
                 >
                     Select Folder
-                    {/* ... input 생략 ... */}
+                    <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                    />
                 </label>
             </div>
 
@@ -232,8 +237,8 @@ export function ImageUpload({
             {files.length > 0 && (
                 <button
                     onClick={handleStartAnalysis}
-                    // ✅ 수정: 그라데이션 및 쉐도우 색상 변경
-                    className="w-full py-3 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent text-primary-foreground font-semibold rounded-lg transition-all shadow-lg shadow-primary/30"
+                    // ✅ 수정: bg-gradient-to-r from-primary to-accent... 대신 원래 클래스 복원
+                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-semibold rounded-lg transition-all shadow-lg shadow-blue-500/30"
                 >
                     Start Analysis
                 </button>

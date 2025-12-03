@@ -16,6 +16,7 @@ import csv
 from models.yolo_model import YOLOModel
 from models.cnn_model import CNNModel
 import os
+import asyncio
 
 import models.inference as inference_module
 from models.inference import analyze_image, analyze_frame, initialize_models
@@ -70,14 +71,14 @@ async def startup_event():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     
     # 모델 경로 설정 (Flask 코드와 동일한 구조)
-    yolo_path = os.path.join(BASE_DIR, "models", "yolov8m.pt")
-    cnn_path = os.path.join(BASE_DIR, "models", "cnn_4class_conditional.pt")
+    yolo_path = os.path.join(BASE_DIR, "models", "YOLO.pt")
+    cnn_path = os.path.join(BASE_DIR, "models", "CNN_classifier.pt")
 
     # 경로가 없으면 상대 경로로 시도
     if not os.path.exists(yolo_path):
-        yolo_path = "models/yolov8m.pt"
+        yolo_path = "models/YOLO.pt"
     if not os.path.exists(cnn_path):
-        cnn_path = "models/cnn_4class_conditional.pt"
+        cnn_path = "models/CNN_classifier.pt"
 
     
     initialize_models(
