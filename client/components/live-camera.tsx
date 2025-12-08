@@ -168,7 +168,7 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
     <div className="space-y-6 max-w-5xl">
           {/* Camera Feed Display */}
           <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xl">
-              <div className="aspect-video bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center relative overflow-hidden">
+              <div className="aspect-video bg-gradient-to-br from-muted to-card flex items-center justify-center relative overflow-hidden">
                   <video
                       ref={videoRef}
                       autoPlay
@@ -184,12 +184,12 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
                               <div className="w-24 h-24 rounded-full border-4 border-blue-500/30 mx-auto mb-4 flex items-center justify-center">
                                   <div className="w-20 h-20 rounded-full border-4 border-blue-500/50"></div>
                               </div>
-                              <p className="text-slate-300 font-medium text-muted-foreground">Camera Ready - 1280×800</p>
+                              <p className="font-medium text-muted-foreground">Camera Ready - 1280×800</p>
                           </div>
                       </div>
                   )}
                   {isRunning && (
-                      <div className="absolute top-4 left-4 bg-black/50 px-3 py-1 rounded text-white text-sm">
+                      <div className="absolute top-4 left-4 bg-black/50 px-3 py-1 rounded text-foreground text-sm">
                           Frame: {frameCount}
                       </div>
                   )}
@@ -237,7 +237,7 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
 
       {/* Analysis Indicator */}
       {isRunning && !error && (
-        <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg p-4 text-center">
+        <div className="bg-card border border-text-foreground rounded-lg p-4 text-center">
           <p className="text-blue-200 font-medium animate-pulse">Analyzing frames, please wait...</p>
         </div>
       )}

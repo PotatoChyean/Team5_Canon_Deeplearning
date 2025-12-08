@@ -37,6 +37,7 @@ export function SummaryAnalytics({ results }: any) {
         const params = new URLSearchParams()
         if (startDate) params.append("start_date", format(startDate, "yyyy-MM-dd"))
         if (endDate) params.append("end_date", format(endDate, "yyyy-MM-dd"))
+          // TODO: date별 분석 결과 DB 저장 
 
         const response = await fetch(`http://localhost:5000/api/statistics?${params.toString()}`)
         if (response.ok) {
@@ -64,6 +65,8 @@ export function SummaryAnalytics({ results }: any) {
       const params = new URLSearchParams()
       if (startDate) params.append("start_date", format(startDate, "yyyy-MM-dd"))
       if (endDate) params.append("end_date", format(endDate, "yyyy-MM-dd"))
+
+      // TODO: date별 분석 결과 DB 저장 
 
       const response = await fetch(`http://localhost:5000/api/report?${params.toString()}`)
       if (!response.ok) {
@@ -123,22 +126,22 @@ export function SummaryAnalytics({ results }: any) {
     <div className="space-y-6 max-w-6xl">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-white">Summary & Analytics</h2>
+        <h2 className="text-2xl font-bold text-foreground">분석 결과 요약</h2>
         <div className="flex flex-wrap items-center gap-2">
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant={"outline"}
                 className={cn(
-                  "w-[240px] justify-start text-left font-normal bg-slate-800 border-slate-700 hover:bg-slate-700 text-white hover:text-white",
-                  !startDate && "text-slate-400"
+                  "w-[240px] justify-start text-left font-normal bg-card border-border hover:bg-muted text-foreground hover:text-foreground",
+                  !startDate && "text-muted-foreground"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {startDate ? format(startDate, "PPP") : <span>Pick a start date</span>}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700" align="start">
+            <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
               <Calendar
                 mode="single"
                 selected={startDate}
@@ -152,15 +155,15 @@ export function SummaryAnalytics({ results }: any) {
               <Button
                 variant={"outline"}
                 className={cn(
-                  "w-[240px] justify-start text-left font-normal bg-slate-800 border-slate-700 hover:bg-slate-700 text-white hover:text-white",
-                  !endDate && "text-slate-400"
+                  "w-[240px] justify-start text-left font-normal bg-card border-border hover:bg-muted text-foreground hover:text-foreground",
+                  !endDate && "text-muted-foreground"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {endDate ? format(endDate, "PPP") : <span>Pick an end date</span>}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700" align="start">
+            <PopoverContent className="w-auto p-0 bg-card border border-border" align="start">
               <Calendar
                 mode="single"
                 selected={endDate}
@@ -175,7 +178,7 @@ export function SummaryAnalytics({ results }: any) {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:bg-slate-500 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
-            {isDownloading ? "Downloading..." : "Download Report"}
+            {isDownloading ? "Downloading..." : "결과 다운로드"}
           </Button>
         </div>
       </div>
@@ -192,8 +195,8 @@ export function SummaryAnalytics({ results }: any) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pie Chart */}
         {!loading && totalCount > 0 && (
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Results Distribution</h3>
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Results Distribution</h3>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -210,7 +213,6 @@ export function SummaryAnalytics({ results }: any) {
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Pie>
-                <Tooltip  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569' }}/>
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -218,14 +220,20 @@ export function SummaryAnalytics({ results }: any) {
 
         {/* Bar Chart */}
         {!loading && barData.length > 0 && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Fail Reasons</h3>
-          <ResponsiveContainer width="100%" height={300}>
+          //TODO: fail 이유 글자 겹침 -> 간격 늘리기
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Fail Reasons</h3>
+          <ResponsiveContainer width="100%" height={600}>
             <BarChart data={barData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis type="number" stroke="#94a3b8" />
               <YAxis type="category" dataKey="name" stroke="#94a3b8" width={150} />
-              <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "var(--card)",
+                    border: "1px solid var(--border)"
+                  }}
+                />
               <Legend />
               <Bar dataKey="count" fill="#ef4444" name="Count" />
             </BarChart>

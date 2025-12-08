@@ -34,8 +34,8 @@ export function ResultsGrid({ results }: any) {
                     >
                         {/* Thumbnail */}
                         <div className="aspect-square bg-gradient-to-br from-card to-background flex items-center justify-center relative overflow-hidden">
-                            <div className="absolute inset-0 opacity-20">
-                                <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_30%,rgba(255,255,255,.1)_50%,transparent_70%)]"></div>
+                            {/* 👇 이 부분에 배경색을 추가합니다 (bg-card가 가장 적절해 보입니다) */}
+                            <div className="absolute inset-0 **bg-card** opacity-20">
                             </div>
                             <div className="text-center z-10">
                                 {result.previewUrl ? (
@@ -90,10 +90,3 @@ export function ResultsGrid({ results }: any) {
         </div>
     )
 }
-
-// 🚨 [삭제]: 사용되지 않는 File 컴포넌트 정의 제거
-/*
-function File({ className }: { className: string }) {
-  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" />
-}
-*/

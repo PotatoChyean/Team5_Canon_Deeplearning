@@ -294,8 +294,6 @@ async def get_report_endpoint(
             result.get("status"),
             result.get("reason"),
             result.get("confidence"),
-            details.get("ocr_lang"),
-            details.get("ocr_status"),
             details.get("yolo_status"),
             details.get("cnn_status")
         ]

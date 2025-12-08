@@ -21,6 +21,7 @@ interface SidebarProps {
 
 
 export default function Dashboard() {
+    const [uploadResetKey, setUploadResetKey] = useState(0)
     const [activeTab, setActiveTab] = useState<SidebarTab>("upload")
     const [isProcessing, setIsProcessing] = useState(false)
     const [results, setResults] = useState<any[]>([])
@@ -44,8 +45,10 @@ export default function Dashboard() {
         setResults(newResults);
         setIsProcessing(false);
         setProcessingCount(totalFiles); // 완료 카운트를 총 파일 수로 설정
+        setUploadResetKey(prev => prev + 1); // 내부 상태 초기화
         setActiveTab('results'); // 결과 탭으로 자동 전환
     };
+    
 
     return (
         // 🚨 [수정]: 최상위 div에서 테마 전환을 방해하던 bg-slate-950 하드코딩 색상을 제거했습니다.
@@ -68,27 +71,50 @@ export default function Dashboard() {
                 
                 <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
                 
-                {/* 🚨 [수정]: 메인 콘텐츠 영역의 하드코딩된 그라데이션을 제거하고 CSS 변수로 대체했습니다. */}
+                {/* 🚨 [수정]: CSS 변수로 대체 */}
                 <main className="flex-1 overflow-auto bg-background p-6">
                     
-                    {/* 3. ImageUpload 연결 (모든 props 전달) */}
-                    {activeTab === "upload" && (
-                        <ImageUpload 
-                            setResults={handleResultsReady} 
-                            onAnalysisStart={handleAnalysisStart} 
-                            setProcessingCount={setProcessingCount} 
+                    {/* 1. ImageUpload 탭 */}
+                    <div
+                        style={{ display: activeTab === "upload" ? "block" : "none" }}
+                    >
+                        <ImageUpload
+                            key={uploadResetKey}
+                            setResults={handleResultsReady}
+                            onAnalysisStart={handleAnalysisStart}
+                            setProcessingCount={setProcessingCount}
                             uploadedCount={totalFiles}
                             isProcessing={isProcessing}
                         />
-                    )}
-                    
-                    {activeTab === "live" && <LiveCamera 
-                    setIsProcessing={setIsProcessing}
-                    setResults={setResults} />}
-                    {activeTab === "results" && <ResultsGrid results={results} />}
-                    {activeTab === "summary" && <SummaryAnalytics results={results} />}
+                    </div>
+
+                    {/* 2. LiveCamera 탭 */}
+                    <div
+                        style={{ display: activeTab === "live" ? "block" : "none" }}
+                    >
+                        <LiveCamera
+                            setIsProcessing={setIsProcessing}
+                            setResults={setResults}
+                        />
+                    </div>
+
+                    {/* 3. ResultsGrid 탭 */}
+                    <div
+                        style={{ display: activeTab === "results" ? "block" : "none" }}
+                    >
+                        <ResultsGrid results={results} />
+                    </div>
+
+                    {/* 4. SummaryAnalytics 탭 */}
+                    <div
+                        style={{ display: activeTab === "summary" ? "block" : "none" }}
+                    >
+                        <SummaryAnalytics results={results} />
+                    </div>
                 </main>
             </div>
         </div>
     )
 }
+
+//TODO: 업로드 이후 분석 완료 시 업로드한 파일이 남아 있음
