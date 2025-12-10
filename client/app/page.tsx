@@ -51,7 +51,7 @@ export default function Dashboard() {
     
 
     return (
-        // 🚨 [수정]: 최상위 div에서 테마 전환을 방해하던 bg-slate-950 하드코딩 색상을 제거했습니다.
+        // 🚨 [수정]: 최상위 div에서 테마 전환을 방해하던 bg-slate-950 하드코딩 색상을 제거
         <div className="flex h-screen relative">
             
             {/* 1. Sidebar 연결 */}
@@ -72,7 +72,7 @@ export default function Dashboard() {
                 <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
                 
                 {/* 🚨 [수정]: CSS 변수로 대체 */}
-                <main className="flex-1 overflow-auto bg-background p-6">
+                <main className="flex-1 overflow-auto bg-background">
                     
                     {/* 1. ImageUpload 탭 */}
                     <div
@@ -116,5 +116,3 @@ export default function Dashboard() {
         </div>
     )
 }
-
-//TODO: 업로드 이후 분석 완료 시 업로드한 파일이 남아 있음

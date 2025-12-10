@@ -138,6 +138,7 @@ export function ImageUpload({
                     confidence: result.confidence || 0,
                     timestamp: result.timestamp,
                     details: result.details || {},
+                    file: fileItem ? fileItem.file : null, 
                     previewUrl: fileItem ? fileItem.previewUrl : null,
                 };
             });
@@ -205,7 +206,7 @@ export function ImageUpload({
                                 // ✅ 수정: bg-slate-900 -> bg-card, border-slate-700 -> border-border
                                 className="flex items-center justify-between p-3 bg-card rounded-lg border border-border"
                             >
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
                                     {/* Preview 이미지 표시 */}
                                     {item.previewUrl ? (
                                         <img
