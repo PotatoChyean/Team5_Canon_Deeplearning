@@ -76,7 +76,7 @@ export function ResultsGrid({ results }: any) {
                                     />
                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
                                         {/* 🚨 수정: text-white -> text-foreground (오버레이 위) */}
-                                        <p className="text-foreground text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <p className="text-white text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                                             클릭하여 확대
                                         </p>
                                     </div>
@@ -134,7 +134,7 @@ export function ResultsGrid({ results }: any) {
                                     <StatusDetail label="STATUS" status={result.details.status_status} />
                                     
                                     {/* 4. SCREEN */}
-                                    <StatusDetail label="SCREEN" status={result.details.screen_status} />
+                                    <StatusDetail label="Screen" status={result.details.screen_status} />
                                     
                                 </div>
                             )}
@@ -144,7 +144,7 @@ export function ResultsGrid({ results }: any) {
                                 className="flex items-center justify-between pt-2 border-t border-border"
                             >
                                 {/* 🚨 수정: text-slate-500 -> text-muted-foreground */}
-                                <span className="text-xs text-muted-foreground">Confidence</span>
+                                <span className="text-xs text-muted-foreground">신뢰도</span>
                                 {/* Confidence 색상은 유지 */}
                                 <span className="text-sm font-semibold text-cyan-400">
                                     {result.confidence}%
