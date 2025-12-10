@@ -184,7 +184,7 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
                               <div className="w-24 h-24 rounded-full border-4 border-blue-500/30 mx-auto mb-4 flex items-center justify-center">
                                   <div className="w-20 h-20 rounded-full border-4 border-blue-500/50"></div>
                               </div>
-                              <p className="font-medium text-muted-foreground">Camera Ready - 1280×800</p>
+                              <p className="font-medium text-muted-foreground">카메라 준비 완료 </p>
                           </div>
                       </div>
                   )}
@@ -198,11 +198,11 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
         {/* Camera Info Bar */}
               <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-between">
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>Resolution: 1280×800</span>
+                      <span>해상도: 1280 × 800</span>
                       <span>•</span>
                       <span>FPS: 15</span>
                       <span>•</span>
-                      <span>Status: {isRunning ? "Recording" : "Idle"}</span>
+                      <span>Status: {isRunning ? "녹화 중" : "대기 중"}</span>
                   </div>
               </div>
           </div>
