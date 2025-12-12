@@ -162,6 +162,12 @@ export function ResultsGrid({ results }: ResultsGridProps) {
                                         <StatusDetail label="ID/BACK" status={result.details.id_back_status} />
                                         <StatusDetail label="STATUS" status={result.details.status_status} />
                                         <StatusDetail label="Screen" status={result.details.screen_status} />
+                                        <StatusDetail label="Model Check" status={result.details.model_status} /> <br></br>
+                                        {result.details?.product_model && (
+                                    <p className="text-sm text-foreground bg-secondary px-2 py-1 rounded-sm border border-border">
+                                        PRODUCT MODEL: {result.details.product_model}
+                                    </p>
+                                )}
                                     </div>
                                 )}
 

@@ -29,21 +29,20 @@ from .cnn_model import CNNModel
 # ============================================================
 PRODUCT_SPEC = {
     "FM2-V160-000": {"button": "ID",   "lang": "CN"},
-    "FM2-V161-000": {"button": "STAT", "lang": None},
-    "FM2-V162-000": {"button": "STAT", "lang": "EN"},
-    "FM2-V163-000": {"button": "STAT", "lang": "CN"},
-    "FM2-V164-000": {"button": "STAT", "lang": "KR"},
-    "FM2-V165-000": {"button": "STAT", "lang": "TW"},
+    "FM2-V161-000": {"button": "Stat", "lang": None},
+    "FM2-V162-000": {"button": "Stat", "lang": "EN"},
+    "FM2-V163-000": {"button": "Stat", "lang": "CN"},
+    "FM2-V164-000": {"button": "Stat", "lang": "KR"},
+    "FM2-V165-000": {"button": "Stat", "lang": "TW"},
     "FM2-V166-000": {"button": "ID",   "lang": "EN"},
-    "FM2-V167-000": {"button": "STAT", "lang": "JP"},
+    "FM2-V167-000": {"button": "Stat", "lang": "JP"},
 }
 
-LANG_LABEL = ["CN", "EN", "JP", "KR", "TW"]
+LANG_LABEL = ["CN", "EN", "JP", "KR", "TW"], 
 
-CLASS_NAMES = ['Home', 'Back', 'ID', 'Stat', 'Monitor', 'Text', 'Monitor_Small', 'Monitor_Big', 'sticker']
-CLASS_MAP = { 
-    0: 'Home', 1: 'Back', 2: 'ID', 3: 'Stat', 4: 'Monitor', 5: 'Text', 
-    6: 'Monitor_Small', 7: 'Monitor_Big', 8: 'sticker'
+CLASS_NAMES = ['Home', 'Back', 'ID', 'Stat', 'Monitor_Small', 'Monitor_Big', 'sticker', 'Text']
+CLASS_MAP = { 0: 'Home', 1: 'Back', 2: 'ID', 3: 'Stat',4: 'Monitor_Small', 
+             5: 'Monitor_Big', 6:  'sticker', 7: 'Text'
 }
 
 # 전역 모델 인스턴스
@@ -64,7 +63,7 @@ def classify_model(found_back, found_id, text_langs):
 
     # (2) Back/ID 결정
     if found_back and (not found_id):
-        btn_type = "STAT"  
+        btn_type = "Back"  
     elif found_id and (not found_back):
         btn_type = "ID"
     else:
@@ -151,13 +150,9 @@ def analyze_image(image: np.ndarray) -> Dict:
         draw_img = cv2.cvtColor(image, cv2.COLOR_RGB2BGR) # 그리기를 위한 cv2 이미지 준비
 
         # 1. YOLO 객체 검출
-        start_time_yolo = time.time()
         yolo_results = yolo_model.detect(image) 
-        time_yolo = time.time() - start_time_yolo
         # print(f"\n[TIME CHECK] YOLO 객체 검출 시간: {time_yolo:.4f} 초")
         detected_classes_raw = [d["class"] for d in yolo_results.get("detections", [])]
-        print(f"DEBUG: YOLO 탐지 객체 수: {len(detected_classes_raw)}")
-        print(f"DEBUG: YOLO 탐지 객체 목록: {detected_classes_raw}")
         
         # --- 2. YOLO 결과 플래그 및 CNN 데이터 수집 ---
         found_home = False
@@ -190,7 +185,6 @@ def analyze_image(image: np.ndarray) -> Dict:
             elif cls_name in ['ID', 'Btn_ID']: found_id = True
             elif cls_name in ['Stat', 'Btn_Stat']: found_stat = True
             elif cls_name == 'Monitor': found_monitor = True
-            elif cls_name in ['Monitor_Small', 'Monitor_Big']: found_monitor = True
             
             # --- 3. CNN 수행 (버튼 & 텍스트) ---
             if cls_name in button_classes:
@@ -221,6 +215,7 @@ def analyze_image(image: np.ndarray) -> Dict:
                 
         time_cnn_total = time.time() - start_time_cnn_total
         print(f"[TIME CHECK] CNN 총 추론 시간: {time_cnn_total:.4f} 초")
+        print(f"[DEBUG: CNNModel] Detected Language: {lang_code} (Prob: {prob:.4f})")
 
 
         # --- 4. 7가지 규칙 기반 판정 시작 ---

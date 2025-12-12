@@ -49,18 +49,12 @@ class ViTClassifier(nn.Module):
             
         return final_logits, out
 
+LANG_LABEL = ["CN", "EN", "JP", "KR", "TW"]
 
 class CNNModel:
     """CNN 모델 래퍼 클래스"""
     
     def __init__(self, model_path: str = "models/CNN_classifier.pt", num_classes: int = 4):
-        """
-        CNN 모델 초기화
-        
-        Args:
-            model_path: 학습된 CNN 모델 경로
-            num_classes: 조건 클래스 수 (ViT에서는 직접 사용되지 않을 수 있음)
-        """
         self.model_path = model_path
         self.num_classes = num_classes
         self.model = None
@@ -77,7 +71,7 @@ class CNNModel:
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
-        self.conditions = ['Btn_Back', 'Btn_Home', 'Btn_ID', 'Btn_Stat']
+        self.conditions = ['Btn_Back', 'Btn_Home', 'Btn_ID', 'Btn_Stat', "Text"]
         self.load_model()
     
     def load_model(self):
@@ -94,51 +88,55 @@ class CNNModel:
             print("경로를 확인하거나 모델 파일이 존재하는지 확인하세요.")
             self.model = None
     
-    def predict_roi(self, image: Image.Image, condition: str) -> Tuple[float, bool]:
+    def predict_roi(self, image: Image.Image, condition: str) -> Tuple[float, str | bool]:
         """
-        ROI 이미지에 대한 예측 수행
-        
-        Args:
-            image: PIL Image (그레이스케일)
-            condition: 조건 클래스 이름 ('Btn_Back', 'Btn_Home', 'Btn_ID', 'Btn_Stat')
-            
-        Returns:
-            (probability, is_pass): 확률값과 Pass 여부 (0.5 이상이면 Pass)
+        ROI 이미지에 대한 예측 수행 (버튼: PASS or FAIL / Text: Language Code)
         """
-        if self.model is None:
-            return 0.0, False
-        
-        if condition not in self.conditions:
+        if self.model is None or condition not in self.conditions:
             return 0.0, False
         
         try:
-            # 이미지 전처리
+            # 1. 이미지 전처리 및 디바이스 이동
             x = self.transform(image).unsqueeze(0).to(DEVICE)
             
-            # 추론
+            # 2. 추론
             with torch.no_grad():
-                # ViT 모델은 condition 문자열을 직접 받음
                 logits, _ = self.model(x, condition)
                 
-                # 'Btn' 조건인 경우, 처음 2개 로짓만 사용
+                # 3. 버튼 품질 검사 ('Btn' 조건)
                 if 'Btn' in condition:
-                    btn_logits = logits[:, :2]
+                    btn_logits = logits[:, :2] # Pass, Fail
                     probabilities = torch.softmax(btn_logits, dim=1)
+                    
+                    predicted_idx = torch.argmax(btn_logits, dim=1).item()
+                    is_pass = (predicted_idx == 0) # 0이 Pass라고 가정
+                    prob = probabilities[0, predicted_idx].item()
+                    
+                    return prob, is_pass 
+                    
+                # 4. 텍스트 언어 감지 ('Text' 조건)
+                elif condition == 'Text':
+                    txt_logits = logits # 5개 언어 로짓
+                    probabilities = torch.softmax(txt_logits, dim=1)
+                    predicted_idx = torch.argmax(txt_logits, dim=1).item()
+                    
+                    # 5개 클래스 (CN, EN, JP, KR, TW)
+                    if 0 <= predicted_idx < len(LANG_LABEL):
+                        lang_code = LANG_LABEL[predicted_idx]
+                    else:
+                        lang_code = "Unknown"
+                        
+                    prob = probabilities[0, predicted_idx].item()
+                    
+                    return prob, lang_code # 확률과 언어 코드 str 반환
+                    
                 else:
-                    # 'Txt' 조건인 경우 (현재는 Btn만 처리)
-                    # 여기서는 5개 로짓 모두 사용
-                    probabilities = torch.softmax(logits, dim=1)
-                
-                # head_btn의 출력이 [Pass, Fail] 순서라고 가정 (0: Pass, 1: Fail)
-                predicted_idx = torch.argmax(btn_logits, dim=1).item() # Get index of max logit
-                is_pass = (predicted_idx == 0) # If predicted index is 0, then it's Pass
-                
-                # Return the probability of the predicted class
-                prob = probabilities[0, predicted_idx].item()
-            
-            return prob, is_pass
-        
+                    return 0.0, False # 예상치 못한 조건
+
         except Exception as e:
+            # 🚨 오류 발생 시 로직이 텍스트 감지인지 버튼 감지인지 알 수 없으므로,
+            # 안전하게 확률 0.0과 False (버튼) 또는 "Error" (텍스트) 반환을 고려할 수 있지만,
+            # 현재는 기존 코드 흐름을 따라 0.0, False를 반환합니다.
             print(f"CNN 예측 오류: {e}")
-            return 0.0, False
+            return 0.0, False # 기본 안전값 반환
 

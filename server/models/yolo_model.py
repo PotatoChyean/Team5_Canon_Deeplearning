@@ -13,15 +13,13 @@ class YOLOModel:
     """YOLO 모델 래퍼 클래스"""
     
     def __init__(self, model_path: str = "models/YOLO.pt"):
-        """
-        YOLO 모델 초기화
-        
-        Args:
-            model_path: 학습된 YOLO 모델 경로
-        """
+        # ... (생략)
         self.model_path = model_path
         self.model = None
-        self.class_names = ['Btn_Home', 'Btn_Back', 'Btn_ID', 'Btn_Stat', 'Monitor_Small', 'Monitor_Big', 'sticker']
+        
+        # 🚨 [핵심 수정]: 클래스 이름을 V2 모델에 맞게 통일
+        self.class_names = ['Btn_Home', 'Btn_Back', 'Btn_ID', 'Btn_Stat', 'Monitor', 'Text'] 
+        
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.load_model()
     
