@@ -190,7 +190,7 @@ async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
                 continue
             
             image_array = np.array(image)
-            result, _ = analyze_image(image_array)
+            result = analyze_image(image_array)
 
             #TODO: 실시간 이미지 결과창 미리보기 수정
 
@@ -243,15 +243,9 @@ async def analyze_frame_endpoint(file: UploadFile = File(...)):
 
         result: dict
         processed_image: Image.Image
-        result, processed_image = analyze_frame(image_array)
+        result = analyze_frame(image_array)
+        encoded_image = result.get("details", {}).get("annotated_image")
 
-        # 처리된 이미지를 Base64로 인코딩 <실시간 이미지 미리보기 처리>
-        img_byte_arr = io.BytesIO()
-        processed_image.save(img_byte_arr, format='JPEG') # 웹 전송 효율을 위해 JPEG 사용 권장
-        img_byte_arr = img_byte_arr.getvalue()
-        # Base64 문자열로 변환
-        encoded_image = base64.b64encode(img_byte_arr).decode('utf-8')
-        
         # 실시간 분석은 저장하지 않거나 별도 처리
         return JSONResponse(content={
             "status": result["status"],

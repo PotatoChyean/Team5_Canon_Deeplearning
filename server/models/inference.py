@@ -15,12 +15,14 @@ from transformers import ViTModel
 import io
 import os
 import traceback
+import base64
+import cv2
+
 
 # 외부 모듈 임포트 (가정)
 # 🚨 이 임포트가 실제 YOLO와 CNN 모델 클래스를 포함하는 파일입니다.
 from .yolo_model import YOLOModel 
 from .cnn_model import CNNModel
-from .cnn_model import ConditionalViT
 
 # ============================================================
 # 제품 스펙테이블 및 레이블 (생략: 이전 코드와 동일)
@@ -117,15 +119,7 @@ def initialize_models(
     # CNN/Text 모델 초기화
     if cnn_model is None:
         try:
-            DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-            cnn_model = ConditionalViT() 
-            cnn_model.load_state_dict(torch.load(cnn_path, map_location=DEVICE))
-            cnn_model.eval()
-            cnn_model = cnn_model.to(DEVICE)
-            transform = transforms.Compose([
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-            ])
+            cnn_model = CNNModel(model_path=cnn_path)
             print("CNN/Text 모델 로드 완료.")
         except Exception as e:
             print(f"CNN/Text 모델 로드 실패: {e}")
@@ -136,7 +130,7 @@ def initialize_models(
 # ============================================================
 # 이미지 분석 메인 함수 (최종 수정: 버튼 상태 독립성 강화)
 # ============================================================
-def analyze_image(image: np.ndarray) -> Tuple[Dict, Image.Image]:
+def analyze_image(image: np.ndarray) -> Dict:
     """
     이미지 분석 메인 함수: 7단계 복합 검사 파이프라인 수행 및 결과 구조 변경 반영
     """
@@ -153,7 +147,8 @@ def analyze_image(image: np.ndarray) -> Tuple[Dict, Image.Image]:
             pil_img = Image.fromarray(image).convert("RGB") 
 
         processed_image = pil_img.copy() # 👈 처리할 이미지 복사
-        draw = ImageDraw.Draw(processed_image) # 👈 이미지 드로잉 객체 생성
+        draw = ImageDraw.Draw(processed_image) # 👈 이미지 드로잉 객체 생성 
+        draw_img = cv2.cvtColor(image, cv2.COLOR_RGB2BGR) # 그리기를 위한 cv2 이미지 준비
 
         # 1. YOLO 객체 검출
         start_time_yolo = time.time()
@@ -161,6 +156,8 @@ def analyze_image(image: np.ndarray) -> Tuple[Dict, Image.Image]:
         time_yolo = time.time() - start_time_yolo
         # print(f"\n[TIME CHECK] YOLO 객체 검출 시간: {time_yolo:.4f} 초")
         detected_classes_raw = [d["class"] for d in yolo_results.get("detections", [])]
+        print(f"DEBUG: YOLO 탐지 객체 수: {len(detected_classes_raw)}")
+        print(f"DEBUG: YOLO 탐지 객체 목록: {detected_classes_raw}")
         
         # --- 2. YOLO 결과 플래그 및 CNN 데이터 수집 ---
         found_home = False
@@ -197,13 +194,8 @@ def analyze_image(image: np.ndarray) -> Tuple[Dict, Image.Image]:
             
             # --- 3. CNN 수행 (버튼 & 텍스트) ---
             if cls_name in button_classes:
-                cond = torch.tensor([0]).to(DEVICE)
-                with torch.no_grad():
-                    t = transform(crop_pil).unsqueeze(0).to(DEVICE)
-                    out = cnn_model(t, cond)[0]
-                
-                prob_pass = torch.softmax(out[:2], dim=0)[0].item() 
-                is_pass = (torch.argmax(out[:2]).item() == 0) # 0이 Pass
+
+                prob, is_pass = cnn_model.predict_roi(crop_pil.convert("L"), cls_name)
                 current_status = "Pass" if is_pass else "Fail"
                 
                 roi_pass_list.append(is_pass) 
@@ -220,27 +212,15 @@ def analyze_image(image: np.ndarray) -> Tuple[Dict, Image.Image]:
                 cnn_results.append({
                     "class": cls_name,
                     "bbox": bbox,
-                    "probability": round(prob_pass, 4), 
+                    "probability": round(prob, 4), 
                     "status": current_status
                 })
 
             elif cls_name == 'Text':
-                # Text CNN 로직 (생략: 이전 코드와 동일)
-                cond = torch.tensor([1]).to(DEVICE)
-                with torch.no_grad():
-                    t = transform(crop_pil).unsqueeze(0).to(DEVICE)
-                    out = cnn_model(t, cond)[0]
-                lang_idx = torch.argmax(out).item()
-                lang = LANG_LABEL[lang_idx]
-                prob_lang = torch.softmax(out, dim=0)[lang_idx].item()
-                text_langs.append(lang)
-                cnn_results.append({
-                    "class": cls_name, "bbox": bbox, "probability": round(prob_lang, 4), 
-                    "status": "OK", "lang": lang
-                })
+                pass
                 
         time_cnn_total = time.time() - start_time_cnn_total
-        # print(f"[TIME CHECK] CNN 총 추론 시간: {time_cnn_total:.4f} 초")
+        print(f"[TIME CHECK] CNN 총 추론 시간: {time_cnn_total:.4f} 초")
 
 
         # --- 4. 7가지 규칙 기반 판정 시작 ---
@@ -303,9 +283,45 @@ def analyze_image(image: np.ndarray) -> Tuple[Dict, Image.Image]:
         
         # 4. SCREEN 상태: Monitor 검출(YOLO) (CNN 품질 검증 없음)
         screen_status = "Pass" if found_monitor else "Fail"
+        cnn_results_map = {tuple(res["bbox"]): res["status"] for res in cnn_results}
+
+        # 5. 모든 탐지된 객체에 대한 정보 그리기
+        all_detections = yolo_results.get("detections", [])
+
+        for det in all_detections:
+            x1, y1, x2, y2 = map(int, det["bbox"])
+            label = det["class"]
+            
+            # CNN 결과가 있는 버튼의 경우, 라벨에 상태 추가
+            bbox_tuple = tuple(det["bbox"])
+            if bbox_tuple in cnn_results_map:
+                status = cnn_results_map[bbox_tuple]
+                label += f" {status}"
+                color = (0, 255, 0) if status == "Pass" else (0, 0, 255) # Green for Pass, Red for Fail
+            else:
+                color = (0, 200, 255) # Default color (yellow-ish)
+
+            cv2.rectangle(draw_img, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(draw_img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
+            cv2.putText(draw_img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+
+        # 6. 최종 결과 및 실패 원인 그리기
+        status_color = (0, 255, 0) if final_status == "PASS" else (0, 0, 255) # Green or Red
+        cv2.putText(draw_img, final_status, (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, status_color, 3, cv2.LINE_AA)
+        
+        if final_status == "FAIL":
+            y_offset = 80
+            # V1은 'reason' 변수를 사용하지만, V2 시각화는 'reasons' 리스트를 사용하므로
+            # V1의 reasons 리스트를 그대로 사용합니다.
+            for r in reasons: 
+                cv2.putText(draw_img, r, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2, cv2.LINE_AA)
+                y_offset += 30
+
+        # 7. 시각화된 이미지를 Base64로 인코딩
+        _, buffer = cv2.imencode('.jpg', draw_img)
+        annotated_image_str = base64.b64encode(buffer).decode('utf-8')
 
         # --- 7. 신뢰도 계산 및 결과 구성 ---
-        # ... (생략: 신뢰도 계산 및 final_result 딕셔너리 생성) ...
         
         confidence_scores = []
         for detection in yolo_results.get("detections", []):
@@ -335,7 +351,8 @@ def analyze_image(image: np.ndarray) -> Tuple[Dict, Image.Image]:
                 "detected_classes": detected_classes_raw
             }
         }
-        return convert_numpy_types(final_result), processed_image
+        final_result["details"]["annotated_image"] = annotated_image_str
+        return convert_numpy_types(final_result)
         
     except Exception as e:
         traceback.print_exc()
@@ -345,10 +362,10 @@ def analyze_image(image: np.ndarray) -> Tuple[Dict, Image.Image]:
             "confidence": 0,
             "details": {}
         }
-        return convert_numpy_types(error_result), Image.fromarray(image).convert("RGB")
+        return convert_numpy_types(error_result)
 
 
-def analyze_frame(image: np.ndarray) -> Tuple[Dict, Image.Image]:
+def analyze_frame(image: np.ndarray) -> Dict:
     """
     실시간 프레임 분석 (analyze_image와 동일)
     """

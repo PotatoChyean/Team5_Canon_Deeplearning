@@ -1,71 +1,53 @@
 """
-CNN 모델 (ConditionalEfficientNet) 로드 및 추론
+CNN 모델 (ViTClassifier) 로드 및 추론
 """
 
 import torch
 import torch.nn as nn
-from torchvision import transforms, models
+from torchvision import transforms
+from transformers import ViTModel
 from PIL import Image
 import numpy as np
 from typing import Dict, Tuple
-from transformers import ViTModel
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-# ============================================================
-# CNN 모델 정의
-# ============================================================
-class ConditionalViT(torch.nn.Module):
+class ViTClassifier(nn.Module):
+    """Vision Transformer 기반 분류 모델"""
     def __init__(self):
         super().__init__()
+        # 사전 학습된 ViT 모델 로드 (3-channel input)
         self.vit = ViTModel.from_pretrained("google/vit-base-patch16-224-in21k")
+
+        # 분류 헤드 정의
         dim = self.vit.config.hidden_size
-        self.head_btn = torch.nn.Linear(dim, 2)
-        self.head_txt = torch.nn.Linear(dim, 5)
+        self.head_btn = nn.Linear(dim, 2)
+        self.head_txt = nn.Linear(dim, 5)
 
-    def forward(self, x, cond):
-        out = self.vit(x).pooler_output
-        btn = self.head_btn(out)
-        txt = self.head_txt(out)
-
+    def forward(self, x, condition_str: str):
+        # condition_str에 따라 숫자 조건(cond) 생성
         B = x.size(0)
-        final = torch.zeros((B, 5), device=x.device)
-
-        bi = (cond == 0)
-        ti = (cond == 1)
-
-        if bi.sum() > 0:
-            final[bi, :2] = btn[bi]
-        if ti.sum() > 0:
-            final[ti] = txt[ti]
-        return final
+        cond_val = 0 if 'Btn' in condition_str else 1
+        cond = torch.tensor([cond_val] * B, device=x.device)
         
-class ConditionalEfficientNet(nn.Module):
-    """조건부 EfficientNet 모델"""
-    
-    def __init__(self, num_classes):
-        super().__init__()
-        self.backbone = models.efficientnet_b0(weights=None)
-        old_conv = self.backbone.features[0][0]
-        new_conv = nn.Conv2d(1, old_conv.out_channels,
-                             kernel_size=old_conv.kernel_size,
-                             stride=old_conv.stride,
-                             padding=old_conv.padding,
-                             bias=old_conv.bias is not None)
-        with torch.no_grad():
-            new_conv.weight[:] = old_conv.weight.mean(dim=1, keepdim=True)
-        self.backbone.features[0][0] = new_conv
-        in_features = self.backbone.classifier[1].in_features
-        self.backbone.classifier = nn.Identity()
-        self.embed = nn.Linear(num_classes, in_features)
-        self.head = nn.Sequential(nn.Dropout(0.3), nn.Linear(in_features, 1))
+        # ViT 모델 추론
+        out = self.vit(x).pooler_output
+        btn_logits = self.head_btn(out)
+        txt_logits = self.head_txt(out)
 
-    def forward(self, x, cond):
-        feat = self.backbone(x)
-        cond_embed = self.embed(cond)
-        fused = feat + cond_embed
-        out = self.head(fused)
-        return torch.sigmoid(out), feat
+        # 최종 출력 텐서 초기화
+        final_logits = torch.zeros((B, 5), device=x.device)
+
+        # 조건에 따라 로짓 채우기
+        btn_indices = (cond == 0)
+        txt_indices = (cond == 1)
+
+        if btn_indices.sum() > 0:
+            final_logits[btn_indices, :2] = btn_logits[btn_indices]
+        if txt_indices.sum() > 0:
+            final_logits[txt_indices] = txt_logits[txt_indices]
+            
+        return final_logits, out
 
 
 class CNNModel:
@@ -77,23 +59,23 @@ class CNNModel:
         
         Args:
             model_path: 학습된 CNN 모델 경로
-            num_classes: 조건 클래스 수
+            num_classes: 조건 클래스 수 (ViT에서는 직접 사용되지 않을 수 있음)
         """
         self.model_path = model_path
         self.num_classes = num_classes
         self.model = None
-        # Pillow 10.0.0 이상에서 Image.ANTIALIAS는 Image.Resampling.LANCZOS로 변경됨
+        
         try:
-            # 최신 Pillow 버전
             resampling = Image.Resampling.LANCZOS
         except AttributeError:
-            # 구버전 Pillow 호환 (Pillow < 10.0.0)
             resampling = Image.LANCZOS
         
+        # 1-channel (grayscale) -> 3-channel 변환을 포함하도록 전처리 수정
         self.transform = transforms.Compose([
             transforms.Resize((224, 224), interpolation=resampling),
+            transforms.Grayscale(num_output_channels=3),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.5])
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
         self.conditions = ['Btn_Back', 'Btn_Home', 'Btn_ID', 'Btn_Stat']
         self.load_model()
@@ -101,8 +83,10 @@ class CNNModel:
     def load_model(self):
         """모델 로드"""
         try:
-            self.model = ConditionalEfficientNet(self.num_classes).to(DEVICE)
-            self.model.load_state_dict(torch.load(self.model_path, map_location=DEVICE))
+            self.model = ViTClassifier().to(DEVICE)
+            # 저장된 state_dict를 직접 로드합니다.
+            # strict=False는 일부 일치하지 않는 키를 무시하도록 허용합니다.
+            self.model.load_state_dict(torch.load(self.model_path, map_location=DEVICE), strict=False)
             self.model.eval()
             print(f"CNN 모델 로드 완료: {self.model_path}")
         except Exception as e:
@@ -131,16 +115,27 @@ class CNNModel:
             # 이미지 전처리
             x = self.transform(image).unsqueeze(0).to(DEVICE)
             
-            # 조건 one-hot 인코딩
-            cond_onehot = torch.zeros(len(self.conditions)).to(DEVICE)
-            cond_onehot[self.conditions.index(condition)] = 1
-            
             # 추론
             with torch.no_grad():
-                pred, _ = self.model(x, cond_onehot.unsqueeze(0))
-                prob = pred.item()
+                # ViT 모델은 condition 문자열을 직접 받음
+                logits, _ = self.model(x, condition)
+                
+                # 'Btn' 조건인 경우, 처음 2개 로짓만 사용
+                if 'Btn' in condition:
+                    btn_logits = logits[:, :2]
+                    probabilities = torch.softmax(btn_logits, dim=1)
+                else:
+                    # 'Txt' 조건인 경우 (현재는 Btn만 처리)
+                    # 여기서는 5개 로짓 모두 사용
+                    probabilities = torch.softmax(logits, dim=1)
+                
+                # head_btn의 출력이 [Pass, Fail] 순서라고 가정 (0: Pass, 1: Fail)
+                predicted_idx = torch.argmax(btn_logits, dim=1).item() # Get index of max logit
+                is_pass = (predicted_idx == 0) # If predicted index is 0, then it's Pass
+                
+                # Return the probability of the predicted class
+                prob = probabilities[0, predicted_idx].item()
             
-            is_pass = prob >= 0.5
             return prob, is_pass
         
         except Exception as e:

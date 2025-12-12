@@ -3,6 +3,7 @@
 import { CheckCircle, AlertCircle } from "lucide-react"
 import { useState } from "react"
 
+// [수정 1] 인터페이스 정의
 interface AnalysisResult {
     id: string;
     name: string; // 파일 업로드 시의 filename
@@ -11,15 +12,60 @@ interface AnalysisResult {
     confidence: number;
     details: any;
     file?: File; // 파일 업로드 시에만 존재
-    // 💡 [추가] Live Camera/Frame 분석 시 백엔드에서 Base64로 받은 이미지 데이터
     processed_image_b64?: string; 
+    imageUrl?: string; // Live Camera 원본 URL (V2 호환성 유지)
+}
+interface ResultsGridProps {
+    results: AnalysisResult[]; // results가 AnalysisResult 객체의 배열임을 명시합니다.
 }
 
-export function ResultsGrid({ results }: any) {
-    // ✅ [수정] 1. 훅 호출 위치 수정: 컴포넌트 본문 내부로 이동 (Hook Rules 준수)
-    // LiveCamera에서 넘어오는 결과를 처리하기 위해 File 대신 결과 객체를 저장합니다.
-    const [selectedImageResult, setSelectedImageResult] = useState<any | null>(null)
 
+// 상태 상세 정보 렌더링 헬퍼 컴포넌트
+const StatusDetail = ({ label, status }: { label: string, status: string }) => {
+    if (!status) return null;
+
+    const isPass = status.toLowerCase() === "pass";
+    const statusClass = isPass ? "text-emerald-400" : "text-red-400";
+
+    return (
+        <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">{label}:</span>
+            <span className={`font-medium ${statusClass}`}>
+                {status}
+            </span>
+        </div>
+    )
+}
+
+// 💡 [수정 3] 컴포넌트 Props에 위에서 정의한 ResultsGridProps 타입을 적용합니다.
+export function ResultsGrid({ results }: ResultsGridProps) {
+    
+    // 💡 [수정 4] selectedImageResult 상태에 AnalysisResult 타입을 적용합니다.
+    const [selectedImageResult, setSelectedImageResult] = useState<AnalysisResult | null>(null)
+
+    // File → Blob URL 생성 함수 
+    const getBlobURL = (file: File) => URL.createObjectURL(file)
+
+    // 이미지 소스 결정 로직 통일 및 함수 정의 (Base64 우선, Live URL, Blob 순)
+    const getImageSrc = (result: AnalysisResult) => {
+        if (result.details?.annotated_image) {
+        return `data:image/jpeg;base64,${result.details.annotated_image}`;
+    }
+        if (result.processed_image_b64) {
+            return `data:image/jpeg;base64,${result.processed_image_b64}`;
+        }
+        // 2. imageUrl (라이브 카메라 원본 URL)
+        if (result.imageUrl) {
+            return result.imageUrl;
+        }
+        // 3. file (파일 업로드 원본 Blob)
+        if (result.file) {
+            return getBlobURL(result.file);
+        }
+        return "";
+    }
+
+    // 결과 없음 처리만 단독으로 실행
     if (results.length === 0) {
         return (
             <div className="text-center py-12">
@@ -28,31 +74,13 @@ export function ResultsGrid({ results }: any) {
         )
     }
 
-    // File → Blob URL 생성 함수 (유지)
-    const getBlobURL = (file: File) => URL.createObjectURL(file)
-
-    // 상태 상세 정보를 렌더링하는 헬퍼 컴포넌트 (유지)
-    const StatusDetail = ({ label, status }: { label: string, status: string }) => {
-        if (!status) return null;
-
-        const isPass = status.toLowerCase() === "pass";
-        const statusClass = isPass ? "text-emerald-400" : "text-red-400";
-
-        return (
-            <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{label}:</span>
-                <span className={`font-medium ${statusClass}`}>
-                    {status}
-                </span>
-            </div>
-        )
-    }
-
+    // 단일 리턴 블록 (Shadcn/ui 테마 적용된 로직 기반)
     return (
         <div className="space-y-6 max-w-6xl">
+            {/* Header and Filter */}
             <div className="flex gap-4 justify-between items-center">
                 <h2 className="text-2xl font-bold text-foreground">Analysis Results</h2>
-                <select
+                <select 
                     className="px-4 py-2 bg-card border border-border text-card-foreground rounded-lg text-sm"
                 >
                     <option>All</option>
@@ -63,14 +91,9 @@ export function ResultsGrid({ results }: any) {
 
             {/* Results Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {results.map((result: any) => {
-
-                    // 🚨 [추가] 이미지 소스 결정
-                    const imageSource = result.processed_image_b64
-                        ? `data:image/jpeg;base64,${result.processed_image_b64}` // 💡 Base64 데이터 URL 형식으로 변환
-                        : result.imageUrl // LiveCamera에서 넘어온 File-based URL (기존 로직)
-                            ? result.imageUrl
-                            : (result.file ? getBlobURL(result.file) : null); // File Upload (Blob URL)
+                {/* 💡 [수정 6] map 인자 타입에 AnalysisResult 타입을 적용합니다. */}
+                {results.map((result: AnalysisResult) => { 
+                    const imageSource = getImageSrc(result); 
 
                     return (
                         <div
@@ -80,17 +103,14 @@ export function ResultsGrid({ results }: any) {
                             {/* Thumbnail */}
                             <div
                                 className="aspect-square bg-background flex items-center justify-center relative overflow-hidden cursor-pointer group"
-                                // 🚨 [수정 2] onClick 핸들러: imageSource가 있을 때만 모달 상태 업데이트
                                 onClick={() => imageSource && setSelectedImageResult(result)}
                             >
                                 {imageSource ? (
                                     <>
                                         <img
-                                            // 🚨 [수정 3] src: imageSource 사용 (Base64 또는 Blob)
                                             src={imageSource}
                                             alt={result.name}
                                             className="w-full h-full object-cover"
-                                            // Blob URL 사용 시에만 revokeObjectURL 호출
                                             onLoad={(e) => {
                                                 if (result.file) URL.revokeObjectURL(e.currentTarget.src)
                                             }}
@@ -109,25 +129,35 @@ export function ResultsGrid({ results }: any) {
                                 )}
                             </div>
 
-                            {/* Info Area (유지) */}
+                            {/* Info Area */}
                             <div className="p-4 space-y-3">
                                 <p className="text-sm font-medium text-card-foreground truncate">{result.name}</p>
 
-                                {/* ... (상태 표시 로직 유지) ... */}
+                                <div className="flex items-center gap-2">
+                                    {result.status === "PASS" ? (
+                                        <>
+                                            <CheckCircle className="w-5 h-5 text-emerald-500" />
+                                            <span className="text-sm font-semibold text-emerald-400">PASS</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <AlertCircle className="w-5 h-5 text-red-500" />
+                                            <span className="text-sm font-semibold text-red-400">FAIL</span>
+                                        </>
+                                    )}
+                                </div>
 
                                 {result.reason && (
-                                    <p
+                                    <p 
                                         className="text-muted-foreground bg-muted/50 px-2 py-1 rounded text-xs"
                                     >
                                         {result.reason}
                                     </p>
                                 )}
 
-                                {/* 상세 정보 */}
+                                {/* 상세 정보 (StatusDetail 헬퍼 사용) */}
                                 {result.details && (
-                                    <div
-                                        className="space-y-1 pt-2 border-t border-border"
-                                    >
+                                    <div className="space-y-1 pt-2 border-t border-border">
                                         <StatusDetail label="HOME" status={result.details.home_status} />
                                         <StatusDetail label="ID/BACK" status={result.details.id_back_status} />
                                         <StatusDetail label="STATUS" status={result.details.status_status} />
@@ -135,9 +165,8 @@ export function ResultsGrid({ results }: any) {
                                     </div>
                                 )}
 
-                                <div
-                                    className="flex items-center justify-between pt-2 border-t border-border"
-                                >
+                                {/* 신뢰도 */}
+                                <div className="flex items-center justify-between pt-2 border-t border-border">
                                     <span className="text-xs text-muted-foreground">신뢰도</span>
                                     <span className="text-sm font-semibold text-cyan-400">
                                         {result.confidence}%
@@ -150,27 +179,16 @@ export function ResultsGrid({ results }: any) {
             </div>
 
             {/* Image Modal */}
-            {/* 🚨 [수정 4] 모달 렌더링: selectedImageResult 사용 */}
             {selectedImageResult && (
                 <div
                     className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-                    onClick={() => setSelectedImageResult(null)} // 모달 닫기 핸들러
+                    onClick={() => setSelectedImageResult(null)}
                 >
                     <div className="relative max-w-4xl max-h-[90vh]">
                         <img
-                            // 🚨 [수정 5] 모달 이미지 소스, Base64 처리 추가
-
-                            src={
-                                selectedImageResult.processed_image_b64
-                                    ? `data:image/jpeg;base64,${selectedImageResult.processed_image_b64}`
-                                    : selectedImageResult.imageUrl
-                                        ? selectedImageResult.imageUrl
-                                        : getBlobURL(selectedImageResult.file)
-                            }
-
+                            src={getImageSrc(selectedImageResult)} 
                             alt="확대 이미지"
                             className="max-w-full max-h-[90vh] object-contain rounded-lg"
-                            // Blob URL만 revokeObjectURL 호출
                             onLoad={(e) => {
                                 if (selectedImageResult.file) URL.revokeObjectURL(e.currentTarget.src)
                             }}
