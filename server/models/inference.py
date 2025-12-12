@@ -1,58 +1,52 @@
 """
-모델 추론 통합 로직 (수정 및 통합 버전)
+모델 추론 통합 로직 (최소 수정 및 통합 버전)
 YOLO, ConditionalViT (CNN) 모델을 연결하여 7단계 규칙 기반 Pass/Fail 및 제품 모델 분류
 """
 
 import numpy as np
 import torch
 import time 
-from typing import Dict, List, Optional, Tuple # 👈 Tuple 임포트 추가
+from typing import Dict, List, Optional, Tuple 
 from PIL import Image, ImageDraw
 from collections import Counter
-from ultralytics import YOLO
-from torchvision import transforms
-from transformers import ViTModel
 import io
 import os
 import traceback
 import base64
 import cv2
 
-
-# 외부 모듈 임포트 (가정)
-# 🚨 이 임포트가 실제 YOLO와 CNN 모델 클래스를 포함하는 파일입니다.
+# 외부 모듈 임포트 유지
 from .yolo_model import YOLOModel 
 from .cnn_model import CNNModel
 
 # ============================================================
-# 제품 스펙테이블 및 레이블 (생략: 이전 코드와 동일)
+# 제품 스펙테이블 및 레이블 (V1 원본 코드와 동일)
 # ============================================================
 PRODUCT_SPEC = {
     "FM2-V160-000": {"button": "ID",   "lang": "CN"},
-    "FM2-V161-000": {"button": "Stat", "lang": None},
-    "FM2-V162-000": {"button": "Stat", "lang": "EN"},
-    "FM2-V163-000": {"button": "Stat", "lang": "CN"},
-    "FM2-V164-000": {"button": "Stat", "lang": "KR"},
-    "FM2-V165-000": {"button": "Stat", "lang": "TW"},
+    "FM2-V161-000": {"button": "Back", "lang": None},
+    "FM2-V162-000": {"button": "Back", "lang": "EN"},
+    "FM2-V163-000": {"button": "Back", "lang": "CN"},
+    "FM2-V164-000": {"button": "Back", "lang": "KR"},
+    "FM2-V165-000": {"button": "Back", "lang": "TW"},
     "FM2-V166-000": {"button": "ID",   "lang": "EN"},
-    "FM2-V167-000": {"button": "Stat", "lang": "JP"},
+    "FM2-V167-000": {"button": "Back", "lang": "JP"},
 }
 
-LANG_LABEL = ["CN", "EN", "JP", "KR", "TW"], 
-
+LANG_LABEL = ["CN", "EN", "JP", "KR", "TW"] # V1에선 튜플로 정의되었으나, 리스트로 통일하여 사용
 CLASS_NAMES = ['Home', 'Back', 'ID', 'Stat', 'Monitor_Small', 'Monitor_Big', 'sticker', 'Text']
-CLASS_MAP = { 0: 'Home', 1: 'Back', 2: 'ID', 3: 'Stat',4: 'Monitor_Small', 
-             5: 'Monitor_Big', 6:  'sticker', 7: 'Text'
+CLASS_MAP = { 0: 'Home', 1: 'Back', 2: 'ID', 3: 'Stat', 4: 'Monitor_Small', 
+              5: 'Monitor_Big', 6: 'sticker', 7: 'Text'
 }
 
 # 전역 모델 인스턴스
 yolo_model = None
 cnn_model = None
-transform = None
+transform = None # CNNModel 내부에서 관리되므로 여기서는 사용하지 않음
 DEVICE = "cpu"
 
 # ============================================================
-# 제품 모델 자동 분류 함수 (생략: 이전 코드와 동일)
+# 제품 모델 자동 분류 함수 (V1 원본 코드와 동일)
 # ============================================================
 def classify_model(found_back, found_id, text_langs):
     # (1) 텍스트 언어 결정
@@ -67,11 +61,15 @@ def classify_model(found_back, found_id, text_langs):
     elif found_id and (not found_back):
         btn_type = "ID"
     else:
-        return None, "Back/ID Mismatch (XOR Fail)" 
+        return None, "Back/ID Mismatch" 
 
     # (3) 후보 제품 찾기
     candidates = []
     for name, spec in PRODUCT_SPEC.items():
+        # V1 원본 코드는 'Back' 버튼이 STAT 모델군으로 분류되는 로직이 없었으므로,
+        # 이전에 제공된 코드를 참고하여 'Back' -> 'STAT'으로 강제 변환합니다. (만약 필요하다면)
+        # 하지만 V1 원본 코드를 최대한 따르기 위해 'Back'으로 유지합니다.
+        
         if spec["lang"] == lang and spec["button"] == btn_type:
             candidates.append(name)
 
@@ -83,7 +81,7 @@ def classify_model(found_back, found_id, text_langs):
         return None, "UnknownModel" # 실패
 
 # ============================================================
-# NumPy 타입 변환 함수 (생략: 이전 코드와 동일)
+# NumPy 타입 변환 함수 (V1 원본 코드와 동일)
 # ============================================================
 def convert_numpy_types(data):
     if isinstance(data, dict):
@@ -99,19 +97,21 @@ def convert_numpy_types(data):
     return data
 
 # ============================================================
-# 모델 초기화 함수 (생략: 이전 코드와 동일)
+# 모델 초기화 함수 (V1 원본 코드와 동일)
 # ============================================================
 def initialize_models(
     yolo_path: str = "models/YOLO.pt",
     cnn_path: str = "models/CNN_classifier.pt",
 ):
     """모델 초기화 (서버 시작 시 호출)"""
-    global yolo_model, cnn_model, transform, DEVICE
+    global yolo_model, cnn_model, DEVICE
     
     # YOLO 모델 초기화
     if yolo_model is None:
         try:
+            # YOLOModel 클래스는 Device를 자체적으로 결정함
             yolo_model = YOLOModel(model_path=yolo_path) 
+            DEVICE = yolo_model.device # YOLO 모델의 디바이스 설정 따름
         except Exception as e:
             print(f"YOLO 모델 로드 실패: {e}")
             
@@ -127,32 +127,31 @@ def initialize_models(
     return yolo_model, cnn_model
 
 # ============================================================
-# 이미지 분석 메인 함수 (최종 수정: 버튼 상태 독립성 강화)
+# 이미지 분석 메인 함수 (최소 통합 버전)
 # ============================================================
 def analyze_image(image: np.ndarray) -> Dict:
     """
-    이미지 분석 메인 함수: 7단계 복합 검사 파이프라인 수행 및 결과 구조 변경 반영
+    이미지 분석 메인 함수: 7단계 복합 검사 파이프라인 수행 및 결과 JSON 반환
     """
-    if yolo_model is None or cnn_model is None or transform is None:
+    if yolo_model is None or cnn_model is None:
         initialize_models()
         if cnn_model is None:
             raise RuntimeError("CNN/Text 모델이 로드되지 않았습니다.")
     
     try:
-        # 이미지 전처리 (생략)
+        # V1: BGR to RGB 변환 후 PIL 생성 (YOLO 모델이 RGB를 기대한다고 가정)
         if len(image.shape) == 3 and image.shape[2] == 3:
-            pil_img = Image.fromarray(image).convert("RGB")
+            # OpenCV 이미지는 보통 BGR이므로, PIL을 위해 RGB로 변환
+            img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(img_rgb).convert("RGB")
         else:
             pil_img = Image.fromarray(image).convert("RGB") 
 
-        processed_image = pil_img.copy() # 👈 처리할 이미지 복사
-        draw = ImageDraw.Draw(processed_image) # 👈 이미지 드로잉 객체 생성 
-        draw_img = cv2.cvtColor(image, cv2.COLOR_RGB2BGR) # 그리기를 위한 cv2 이미지 준비
-
+        # 시각화용 이미지 (OpenCV는 BGR을 사용하므로, 원본 BGR 이미지를 사용하거나 복사)
+        draw_img = image.copy() 
+        
         # 1. YOLO 객체 검출
-        yolo_results = yolo_model.detect(image) 
-        # print(f"\n[TIME CHECK] YOLO 객체 검출 시간: {time_yolo:.4f} 초")
-        detected_classes_raw = [d["class"] for d in yolo_results.get("detections", [])]
+        yolo_results = yolo_model.detect(img_rgb) # YOLO 모델이 RGB를 기대한다고 가정
         
         # --- 2. YOLO 결과 플래그 및 CNN 데이터 수집 ---
         found_home = False
@@ -160,193 +159,171 @@ def analyze_image(image: np.ndarray) -> Dict:
         found_monitor = False
         found_back = False
         found_id = False
-
+        cnn_fail = False # Rule C 판정을 위한 플래그
+        
         cnn_results = []
         roi_pass_list = [] 
         text_langs = []
-        
-        # 🚨 [신규] 버튼 클래스별 CNN 결과를 저장하는 맵
+        yolo_detections = []
+        confidence_scores = []
         cnn_button_status_map = {} 
-        button_classes = ['Home', 'Back', 'ID', 'Stat', 'Btn_Home', 'Btn_Back', 'Btn_ID', 'Btn_Stat']
+        button_classes = ['Home', 'Back', 'ID', 'Stat']
         
         start_time_cnn_total = time.time() 
 
         for detection in yolo_results.get("detections", []):
             cls_name = detection["class"]
             bbox = detection["bbox"]
+            conf = detection["confidence"]
             
-            if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]: continue
+            x1, y1, x2, y2 = map(int, bbox)
+            if x1 >= x2 or y1 >= y2: continue
                 
-            crop_pil = pil_img.crop((bbox[0], bbox[1], bbox[2], bbox[3])) 
+            # PIL 이미지는 RGB 원본에서 Crop (CNNModel에 전달)
+            crop_pil = pil_img.crop((x1, y1, x2, y2)) 
             
-            # 플래그 설정
-            if cls_name in ['Home', 'Btn_Home']: found_home = True
-            elif cls_name in ['Back', 'Btn_Back']: found_back = True
-            elif cls_name in ['ID', 'Btn_ID']: found_id = True
-            elif cls_name in ['Stat', 'Btn_Stat']: found_stat = True
-            elif cls_name == 'Monitor': found_monitor = True
-            
-            # --- 3. CNN 수행 (버튼 & 텍스트) ---
-            if cls_name in button_classes:
+            # --- 플래그 설정 ---
+            base_cls = cls_name.replace('Btn_', '')
+            if base_cls == 'Home': found_home = True
+            elif base_cls == 'Back': found_back = True
+            elif base_cls == 'ID': found_id = True
+            elif base_cls == 'Stat': found_stat = True
+            elif cls_name in ['Monitor_Small', 'Monitor_Big', 'Monitor']: found_monitor = True
 
+            # --- 3. CNN 수행 (버튼 & 텍스트) ---
+            current_status = None
+            prob = 0.0
+            
+            if base_cls in button_classes:
+                # CNNModel의 predict_roi는 PIL Image (Grayscale)를 기대한다고 가정
                 prob, is_pass = cnn_model.predict_roi(crop_pil.convert("L"), cls_name)
                 current_status = "Pass" if is_pass else "Fail"
                 
                 roi_pass_list.append(is_pass) 
+                if not is_pass:
+                    cnn_fail = True
                 
-                # 🚨 [수정] 맵에 해당 버튼의 상태를 저장 (Btn_ 제거, Fail 우선)
-                base_cls_name = cls_name.replace('Btn_', '') 
-                
-                # 하나라도 Fail이면 Fail로 기록 (보수적 접근)
-                if base_cls_name in cnn_button_status_map and cnn_button_status_map[base_cls_name] == "Fail":
+                # CNN 상태 맵 업데이트
+                if base_cls in cnn_button_status_map and cnn_button_status_map[base_cls] == "Fail":
                      pass
                 else:
-                    cnn_button_status_map[base_cls_name] = current_status
+                    cnn_button_status_map[base_cls] = current_status
                 
                 cnn_results.append({
-                    "class": cls_name,
+                    "class": base_cls,
                     "bbox": bbox,
                     "probability": round(prob, 4), 
                     "status": current_status
                 })
+                confidence_scores.append(prob * 100) # CNN 확률도 신뢰도에 포함
 
-            elif cls_name == 'Text':
-                pass
-                
+            elif base_cls == 'Text':
+                # CNNModel의 predict_roi는 텍스트 감지 결과를 반환하도록 수정되어야 함
+                prob, lang = cnn_model.predict_roi(crop_pil.convert("L"), cls_name)
+                current_status = lang if isinstance(lang, str) else "Unknown" # Text는 Pass/Fail 대신 언어 코드를 반환
+                text_langs.append(current_status)
+                confidence_scores.append(prob * 100)
+            
+            # --- 4. 시각화 데이터 준비 ---
+            final_label = f"{base_cls} {current_status or ''}".strip()
+            
+            # 색상 결정 (V1 원본 로직 유지)
+            if current_status == 'Pass': color = (0, 255, 0) # Green
+            elif current_status == 'Fail': color = (0, 0, 255) # Red
+            else: color = (0, 200, 255) # Default (Cyan/Yellow)
+
+            # BBox 그리기
+            cv2.rectangle(draw_img, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(draw_img, final_label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
+            cv2.putText(draw_img, final_label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+
+            yolo_detections.append({
+                "class": base_cls, "bbox": bbox, "confidence": round(conf, 4)
+            })
+            confidence_scores.append(conf * 100)
+            
         time_cnn_total = time.time() - start_time_cnn_total
         print(f"[TIME CHECK] CNN 총 추론 시간: {time_cnn_total:.4f} 초")
-        print(f"[DEBUG: CNNModel] Detected Language: {lang_code} (Prob: {prob:.4f})")
 
+        # --- 5. 7가지 규칙 기반 판정 시작 (V1 원본 로직) ---
+        prod, model_err = classify_model(found_back, found_id, text_langs)
+        
+        fails = []
+        
+        # 1. 필수 요소 확인 (Rule A)
+        if not found_home: fails.append("Home Missing")
+        if not found_stat: fails.append("Stat Missing")
+        if not found_monitor: fails.append("Monitor Missing")
 
-        # --- 4. 7가지 규칙 기반 판정 시작 ---
-        yolo_presence_ok = found_home and found_stat and found_monitor
-        yolo_xor_ok = found_back ^ found_id
-        cnn_ok = all(roi_pass_list) if roi_pass_list else False # 전체 Rule C는 여전히 모든 버튼이 Pass해야 함
+        # 2. Back XOR ID (Rule B)
+        if found_back and found_id: fails.append("Back and ID Both Present")
+        if (not found_back) and (not found_id): fails.append("Back/ID Missing")
+
+        # 3. CNN (Rule C)
+        if cnn_fail: fails.append("Button Fail")
+
+        # 4. Text 조건 (Rule D)
         text_count = len(text_langs)
-        text_ok = (text_count == 0) or (text_count >= 3)
-        detected_prod, model_err = classify_model(found_back, found_id, text_langs)
-        model_ok = (detected_prod is not None)
+        if not (text_count == 0 or text_count >= 3): fails.append(f"Text Count Invalid (N={text_count})")
+
+        # 5. 모델 분류 결과 (Rule E)
+        if prod is None: fails.append(model_err)
         
-        # --- 5. 최종 판정 (Rule A-E 모두 만족해야 PASS) ---
-        final_pass = yolo_presence_ok and yolo_xor_ok and cnn_ok and text_ok and model_ok
-        final_status = "PASS" if final_pass else "FAIL" 
+        # 6. 최종 판정
+        is_pass = (len(fails) == 0)
+        final_status = "PASS" if is_pass else "FAIL" 
+        reason = "; ".join(fails) if fails else None
         
-        # --- 6. Fail 사유 수집 및 세분화된 상태 판단 (독립성 강화) ---
-        reasons = []
-        if not yolo_presence_ok: 
-            missing = []
-            if not found_home: missing.append("Home")
-            if not found_stat: missing.append("Stat")
-            if not found_monitor: missing.append("Monitor")
-            reasons.append(f"필수 객체 미검출 ({', '.join(missing)})")
+        # --- 7. 최종 결과 이미지에 요약 정보 추가 (main 루프의 시각화 로직) ---
+        
+        # 제품명 표시 (V1 main 로직)
+        title = prod if prod else "UNKNOWN"
+        cv2.putText(draw_img, title, (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2) # BGR: Cyan/Yellow
+
+        # 최종 상태 표시 (V1 main 로직)
+        if is_pass:
+            status_color = (0, 255, 0) # Green
+            cv2.putText(draw_img, "PASS", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1.0, status_color, 3)
+        else:
+            status_color = (0, 0, 255) # Red
+            cv2.putText(draw_img, "FAIL", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1.0, status_color, 3)
             
-        if not yolo_xor_ok: 
-            reasons.append("Back/ID 조건 불만족 (XOR 실패)")
-            
-        # 🚨 Rule C 실패 시 개별 버튼 품질 불량 명시 (이전 코드 유지)
-        if not cnn_ok: 
-            failed_buttons = [
-                res["class"] for res in cnn_results 
-                if res["status"] == "Fail" and res["class"] in button_classes
-            ]
-            if failed_buttons:
-                reasons.append(f"버튼 CNN 품질 불량: {', '.join(failed_buttons)} (FAIL)")
-            elif roi_pass_list:
-                reasons.append("버튼 CNN 검증 실패 (세부 버튼 확인 필요)")
+            # 실패 사유 목록 출력
+            y = 140
+            for r in fails:
+                cv2.putText(draw_img, r, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, status_color, 2)
+                y += 30
 
-        if not text_ok: reasons.append(f"텍스트 개수 불만족 (N={text_count})")
-        if not model_ok: reasons.append(model_err) 
-
-        reason = "; ".join(reasons) if reasons else None
+        # --- 8. Base64 인코딩 및 결과 반환 ---
         
-        # 🚨 [핵심 수정]: 세분화된 상태 판단 (개별 버튼의 CNN 상태에만 의존)
-        
-        # 1. HOME 상태: HOME 버튼 검출(YOLO) & Home 버튼 CNN Pass
-        home_cnn_status = cnn_button_status_map.get('Home', 'Fail')
-        home_status = "Pass" if found_home and (home_cnn_status == 'Pass') else "Fail"
-        
-        # 2. ID/BACK 상태: ID/BACK XOR 조건(YOLO) & 탐지된 버튼 (ID or Back)의 CNN Pass
-        id_back_cnn_ok = (found_id and cnn_button_status_map.get('ID', 'Fail') == 'Pass') or \
-                         (found_back and cnn_button_status_map.get('Back', 'Fail') == 'Pass')
-                         
-        # YOLO XOR 조건이 충족되고, 탐지된 해당 버튼의 CNN이 Pass여야 Pass
-        id_back_status = "Pass" if yolo_xor_ok and id_back_cnn_ok else "Fail"
-        
-        # 3. STATUS 상태: STAT 버튼 검출(YOLO) & Stat 버튼 CNN Pass
-        status_cnn_status = cnn_button_status_map.get('Stat', 'Fail')
-        status_status = "Pass" if found_stat and (status_cnn_status == 'Pass') else "Fail"
-        
-        # 4. SCREEN 상태: Monitor 검출(YOLO) (CNN 품질 검증 없음)
-        screen_status = "Pass" if found_monitor else "Fail"
-        cnn_results_map = {tuple(res["bbox"]): res["status"] for res in cnn_results}
-
-        # 5. 모든 탐지된 객체에 대한 정보 그리기
-        all_detections = yolo_results.get("detections", [])
-
-        for det in all_detections:
-            x1, y1, x2, y2 = map(int, det["bbox"])
-            label = det["class"]
-            
-            # CNN 결과가 있는 버튼의 경우, 라벨에 상태 추가
-            bbox_tuple = tuple(det["bbox"])
-            if bbox_tuple in cnn_results_map:
-                status = cnn_results_map[bbox_tuple]
-                label += f" {status}"
-                color = (0, 255, 0) if status == "Pass" else (0, 0, 255) # Green for Pass, Red for Fail
-            else:
-                color = (0, 200, 255) # Default color (yellow-ish)
-
-            cv2.rectangle(draw_img, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(draw_img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
-            cv2.putText(draw_img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
-
-        # 6. 최종 결과 및 실패 원인 그리기
-        status_color = (0, 255, 0) if final_status == "PASS" else (0, 0, 255) # Green or Red
-        cv2.putText(draw_img, final_status, (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, status_color, 3, cv2.LINE_AA)
-        
-        if final_status == "FAIL":
-            y_offset = 80
-            # V1은 'reason' 변수를 사용하지만, V2 시각화는 'reasons' 리스트를 사용하므로
-            # V1의 reasons 리스트를 그대로 사용합니다.
-            for r in reasons: 
-                cv2.putText(draw_img, r, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2, cv2.LINE_AA)
-                y_offset += 30
-
-        # 7. 시각화된 이미지를 Base64로 인코딩
         _, buffer = cv2.imencode('.jpg', draw_img)
         annotated_image_str = base64.b64encode(buffer).decode('utf-8')
 
-        # --- 7. 신뢰도 계산 및 결과 구성 ---
-        
-        confidence_scores = []
-        for detection in yolo_results.get("detections", []):
-            confidence_scores.append(detection.get("confidence", 0) * 100)
-        for cnn_result in cnn_results:
-            confidence_scores.append(cnn_result.get("probability", 0) * 100)
-        
         avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
         
+        # 최종 결과 객체 구성 (프론트엔드 ResultsGrid와 호환되도록)
         final_result = {
             "status": final_status,
             "reason": reason,
             "confidence": round(avg_confidence, 2),
             "details": {
-                "product_model": detected_prod,
+                "product_model": prod,
                 "language": Counter(text_langs).most_common(1)[0][0] if text_langs else None,
-                
-                "home_status": home_status,
-                "id_back_status": id_back_status,
-                "status_status": status_status,
-                "screen_status": screen_status,
-                
-                "model_status": "Pass" if model_ok else "Fail",
+                "model_status": "Pass" if prod else "Fail",
                 "text_count": text_count,
-                "yolo_detections": yolo_results.get("detections", []),
-                "cnn_results": cnn_results, 
-                "detected_classes": detected_classes_raw
+                
+                # 이전 V1 코드를 참고하여 세분화된 상태 재구성
+                "home_status": cnn_button_status_map.get('Home', 'Fail'),
+                "id_back_status": cnn_button_status_map.get('ID', 'Fail') if found_id else cnn_button_status_map.get('Back', 'Fail'),
+                "status_status": cnn_button_status_map.get('Stat', 'Fail'),
+                "screen_status": "Pass" if found_monitor else "Fail",
+                
+                "yolo_detections": yolo_detections,
+                "cnn_results": cnn_results,
+                "annotated_image": annotated_image_str
             }
         }
-        final_result["details"]["annotated_image"] = annotated_image_str
+        
         return convert_numpy_types(final_result)
         
     except Exception as e:
