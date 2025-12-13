@@ -82,7 +82,7 @@ export function SummaryAnalytics({ results }: any) {
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+)"?/)
         if (filenameMatch && filenameMatch.length > 1) {
-          filename = filenameMatch[1];
+          filename = filenameMatch[1].replace(/["']/g, "")
         }
       }
 
@@ -223,7 +223,7 @@ export function SummaryAnalytics({ results }: any) {
           //TODO: fail 이유 글자 겹침 -> 간격 늘리기
         <div className="bg-card border border-border rounded-xl p-6">
           <h3 className="text-lg font-semibold text-foreground mb-4">Fail Reasons</h3>
-          <ResponsiveContainer width="100%" height={600}>
+          <ResponsiveContainer width="100%" height={1000}>
             <BarChart data={barData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis type="number" stroke="#94a3b8" />

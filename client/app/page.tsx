@@ -29,7 +29,7 @@ export default function Dashboard() {
     
     // 진행률 관리를 위한 상태
     const [processingCount, setProcessingCount] = useState<number>(0)
-    const [totalFiles, setTotalFiles] = useState<number>(0)           
+    const [totalFiles, setTotalFiles] = useState<number>(0)           
 
     const paddingClass = isCollapsed ? 'pl-16' : 'pl-64';
 
@@ -51,7 +51,6 @@ export default function Dashboard() {
     
 
     return (
-        // 🚨 [수정]: 최상위 div에서 테마 전환을 방해하던 bg-slate-950 하드코딩 색상을 제거
         <div className="flex h-screen relative">
             
             {/* 1. Sidebar 연결 */}
@@ -71,13 +70,10 @@ export default function Dashboard() {
                 
                 <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
                 
-                {/* 🚨 [수정]: CSS 변수로 대체 */}
                 <main className="flex-1 overflow-auto bg-background">
                     
                     {/* 1. ImageUpload 탭 */}
-                    <div
-                        style={{ display: activeTab === "upload" ? "block" : "none" }}
-                    >
+                    {activeTab === "upload" && (
                         <ImageUpload
                             key={uploadResetKey}
                             setResults={handleResultsReady}
@@ -86,31 +82,26 @@ export default function Dashboard() {
                             uploadedCount={totalFiles}
                             isProcessing={isProcessing}
                         />
-                    </div>
+                    )}
 
-                    {/* 2. LiveCamera 탭 */}
-                    <div
-                        style={{ display: activeTab === "live" ? "block" : "none" }}
-                    >
+                    {/* 2. LiveCamera 탭 (핵심: 조건부 렌더링) */}
+                    {activeTab === "live" && (
                         <LiveCamera
                             setIsProcessing={setIsProcessing}
                             setResults={setResults}
                         />
-                    </div>
+                    )}
 
                     {/* 3. ResultsGrid 탭 */}
-                    <div
-                        style={{ display: activeTab === "results" ? "block" : "none" }}
-                    >
+                    {activeTab === "results" && (
                         <ResultsGrid results={results} />
-                    </div>
+                    )}
 
                     {/* 4. SummaryAnalytics 탭 */}
-                    <div
-                        style={{ display: activeTab === "summary" ? "block" : "none" }}
-                    >
+                    {activeTab === "summary" && (
                         <SummaryAnalytics results={results} />
-                    </div>
+                    )}
+                    
                 </main>
             </div>
         </div>

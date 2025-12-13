@@ -33,7 +33,7 @@ PRODUCT_SPEC = {
     "FM2-V167-000": {"button": "Back", "lang": "JP"},
 }
 
-LANG_LABEL = ["CN", "EN", "JP", "KR", "TW"] # V1에선 튜플로 정의되었으나, 리스트로 통일하여 사용
+LANG_LABEL = ["CN", "EN", "JP", "KR", "TW"] 
 CLASS_NAMES = ['Home', 'Back', 'ID', 'Stat', 'Monitor_Small', 'Monitor_Big', 'sticker', 'Text']
 CLASS_MAP = { 0: 'Home', 1: 'Back', 2: 'ID', 3: 'Stat', 4: 'Monitor_Small', 
               5: 'Monitor_Big', 6: 'sticker', 7: 'Text'
@@ -42,8 +42,6 @@ CLASS_MAP = { 0: 'Home', 1: 'Back', 2: 'ID', 3: 'Stat', 4: 'Monitor_Small',
 # 전역 모델 인스턴스
 yolo_model = None
 cnn_model = None
-transform = None # CNNModel 내부에서 관리되므로 여기서는 사용하지 않음
-DEVICE = "cpu"
 
 # ============================================================
 # 제품 모델 자동 분류 함수 (V1 원본 코드와 동일)
@@ -66,10 +64,7 @@ def classify_model(found_back, found_id, text_langs):
     # (3) 후보 제품 찾기
     candidates = []
     for name, spec in PRODUCT_SPEC.items():
-        # V1 원본 코드는 'Back' 버튼이 STAT 모델군으로 분류되는 로직이 없었으므로,
-        # 이전에 제공된 코드를 참고하여 'Back' -> 'STAT'으로 강제 변환합니다. (만약 필요하다면)
-        # 하지만 V1 원본 코드를 최대한 따르기 위해 'Back'으로 유지합니다.
-        
+
         if spec["lang"] == lang and spec["button"] == btn_type:
             candidates.append(name)
 
@@ -129,7 +124,9 @@ def initialize_models(
 # ============================================================
 # 이미지 분석 메인 함수 (최소 통합 버전)
 # ============================================================
-def analyze_image(image: np.ndarray) -> Dict:
+def analyze_image(image: np.ndarray, 
+    brightness: float = 0.0, 
+    exposure_gain: float = 1.0) -> Dict:
     """
     이미지 분석 메인 함수: 7단계 복합 검사 파이프라인 수행 및 결과 JSON 반환
     """
@@ -139,17 +136,25 @@ def analyze_image(image: np.ndarray) -> Dict:
             raise RuntimeError("CNN/Text 모델이 로드되지 않았습니다.")
     
     try:
-        # V1: BGR to RGB 변환 후 PIL 생성 (YOLO 모델이 RGB를 기대한다고 가정)
+        # 입력 이미지를 BGR 포맷으로 통일하여 current_img_bgr에 저장
         if len(image.shape) == 3 and image.shape[2] == 3:
-            # OpenCV 이미지는 보통 BGR이므로, PIL을 위해 RGB로 변환
-            img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            pil_img = Image.fromarray(img_rgb).convert("RGB")
+            pil_img_temp = Image.fromarray(image).convert("RGB")
         else:
-            pil_img = Image.fromarray(image).convert("RGB") 
+            pil_img_temp = Image.fromarray(image).convert("RGB")
+            
+        img_rgb = np.array(pil_img_temp) 
+        pil_img = pil_img_temp
 
-        # 시각화용 이미지 (OpenCV는 BGR을 사용하므로, 원본 BGR 이미지를 사용하거나 복사)
-        draw_img = image.copy() 
+        current_img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
         
+        if brightness != 0.0 or exposure_gain != 1.0:
+            current_img_bgr = cv2.convertScaleAbs(current_img_bgr, alpha=exposure_gain, beta=brightness)
+
+        draw_img = current_img_bgr.copy() 
+        
+        if brightness != 0.0 or exposure_gain != 1.0:
+            img_rgb = cv2.cvtColor(current_img_bgr, cv2.COLOR_BGR2RGB)
+            
         # 1. YOLO 객체 검출
         yolo_results = yolo_model.detect(img_rgb) # YOLO 모델이 RGB를 기대한다고 가정
         
@@ -247,7 +252,6 @@ def analyze_image(image: np.ndarray) -> Dict:
 
         # --- 5. 7가지 규칙 기반 판정 시작 (V1 원본 로직) ---
         prod, model_err = classify_model(found_back, found_id, text_langs)
-        
         fails = []
         
         # 1. 필수 요소 확인 (Rule A)
@@ -256,20 +260,44 @@ def analyze_image(image: np.ndarray) -> Dict:
         if not found_monitor: fails.append("Monitor Missing")
 
         # 2. Back XOR ID (Rule B)
-        if found_back and found_id: fails.append("Back and ID Both Present")
-        if (not found_back) and (not found_id): fails.append("Back/ID Missing")
+        button_type = None
+        current_id_back_status = "Fail"
+        
+        if found_back and found_id: 
+            fails.append("Back and ID Both Present")
+        elif (not found_back) and (not found_id):
+            fails.append("Back/ID Missing")
+        elif found_back:
+            button_type = "Back"
+        elif found_id:
+            button_type = "ID"
 
-        # 3. CNN (Rule C)
-        if cnn_fail: fails.append("Button Fail")
-
-        # 4. Text 조건 (Rule D)
+        # 3. Rule C: CNN Fail을 최종 Fail 목록에 명시적으로 추가 
+        if button_type is not None:
+            cnn_status = cnn_button_status_map.get(button_type, 'Fail')
+    
+            if cnn_status == "Pass" and prod is not None:
+                current_id_back_status = "Pass"
+                
+            # --- [추가] 3. Rule C: CNN Fail을 최종 Fail 목록에 명시적으로 추가 ---
+            if cnn_status == "Fail":
+                fails.append(f"{button_type} Button CNN Fail")
+            if cnn_button_status_map.get('Stat') == "Fail":
+                fails.append("Stat Button CNN Fail")
+            
+        # 4. 전체 CNN Fail 플래그 기반 Rule C 추가 (다른 버튼 포함)
+        if cnn_fail: 
+             if "Rule C: General Button Failure" not in fails:
+                  pass 
+                       
+        # 5. Text 조건 (Rule D)
         text_count = len(text_langs)
         if not (text_count == 0 or text_count >= 3): fails.append(f"Text Count Invalid (N={text_count})")
 
-        # 5. 모델 분류 결과 (Rule E)
+        # 6. 모델 분류 결과 (Rule E)
         if prod is None: fails.append(model_err)
         
-        # 6. 최종 판정
+        # 7. 최종 판정
         is_pass = (len(fails) == 0)
         final_status = "PASS" if is_pass else "FAIL" 
         reason = "; ".join(fails) if fails else None
@@ -300,7 +328,7 @@ def analyze_image(image: np.ndarray) -> Dict:
         annotated_image_str = base64.b64encode(buffer).decode('utf-8')
 
         avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
-        
+
         # 최종 결과 객체 구성 (프론트엔드 ResultsGrid와 호환되도록)
         final_result = {
             "status": final_status,
@@ -314,7 +342,7 @@ def analyze_image(image: np.ndarray) -> Dict:
                 
                 # 이전 V1 코드를 참고하여 세분화된 상태 재구성
                 "home_status": cnn_button_status_map.get('Home', 'Fail'),
-                "id_back_status": cnn_button_status_map.get('ID', 'Fail') if found_id else cnn_button_status_map.get('Back', 'Fail'),
+                "id_back_status": current_id_back_status,
                 "status_status": cnn_button_status_map.get('Stat', 'Fail'),
                 "screen_status": "Pass" if found_monitor else "Fail",
                 

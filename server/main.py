@@ -18,6 +18,7 @@ from models.cnn_model import CNNModel
 import os
 import asyncio
 import base64
+from urllib.parse import quote
 
 import models.inference as inference_module
 from models.inference import analyze_image, analyze_frame, initialize_models
@@ -223,7 +224,10 @@ async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
 
 
 @app.post("/api/analyze-frame")
-async def analyze_frame_endpoint(file: UploadFile = File(...)):
+async def analyze_frame_endpoint(file: UploadFile = File(...),
+    brightness: float = 0.0, # 명도 조절
+    exposure_gain: float = 1.0 # 조도/대비 조절
+):
     """
     실시간 카메라 프레임 분석
     """
@@ -245,9 +249,19 @@ async def analyze_frame_endpoint(file: UploadFile = File(...)):
         processed_image: Image.Image
         result = analyze_frame(image_array)
         encoded_image = result.get("details", {}).get("annotated_image")
+        
+        saved_result = save_result(
+            filename=f"CAMERA_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}",
+            status=result["status"],
+            reason=result.get("reason"),
+            confidence=result.get("confidence", 0),
+            details=result.get("details", {})
+        )
 
-        # 실시간 분석은 저장하지 않거나 별도 처리
         return JSONResponse(content={
+            "id": saved_result["id"], 
+            "filename": saved_result["filename"], 
+            "timestamp": saved_result["timestamp"],
             "status": result["status"],
             "reason": result.get("reason"),
             "confidence": result.get("confidence", 0),
@@ -277,7 +291,7 @@ async def get_report_endpoint(
         status=status, 
         start_date=start_date, 
         end_date=end_date,
-        limit=10000  # 리포트는 많은 데이터를 포함할 수 있도록 limit를 크게 설정
+        limit=10000 
     )
 
     output = io.StringIO()
@@ -285,36 +299,58 @@ async def get_report_endpoint(
 
     # CSV 헤더 작성
     header = [
-        "ID", "Filename", "Timestamp", "Status", "Reason", "Confidence", 
-        "OCR Language", "OCR Status", "YOLO Status", "CNN Status"
+        "ID", 
+        "Filename", 
+        "Timestamp", 
+        "Final Status", 
+        "Home Button",
+        "Status Button", 
+        "Screen", 
+        "ID/Back Button", 
+        "Text Language",
+        "Fail Reason", 
+        "Confidence", 
+        "Product Model",
     ]
     writer.writerow(header)
 
     # CSV 데이터 행 작성
     for result in results:
         details = result.get("details", {})
+        text_language = details.get("language", "N/A") 
+        product_model = details.get("product_model", "N/A")
+
         row = [
             result.get("id"),
             result.get("filename"),
             result.get("timestamp"),
-            result.get("status"),
-            result.get("reason"),
-            result.get("confidence"),
-            details.get("yolo_status"),
-            details.get("cnn_status")
+            result.get("status"),                                 
+            details.get("home_status", "N/A"),
+            details.get("status_status", "N/A"),
+            details.get("screen_status", "N/A"),
+            details.get("id_back_status", "N/A"),
+            text_language,                                         
+            result.get("reason"),  
+            result.get("confidence"),                              
+            product_model                                        
         ]
         writer.writerow(row)
 
     output.seek(0)
     
     report_filename = f"analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    
+    content_disposition = f"attachment; filename=\"{report_filename}\""
+
+    headers = {
+        "Content-Disposition": content_disposition, 
+        "Access-Control-Expose-Headers": "Content-Disposition"
+    }
+
     return StreamingResponse(
         output,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={report_filename}"}
-    )
-
+        headers=headers
+)
 
 @app.get("/api/statistics")
 async def get_statistics_endpoint(
