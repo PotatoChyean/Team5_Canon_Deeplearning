@@ -3,7 +3,7 @@ FastAPI 백엔드 서버
 YOLO + OCR 모델을 사용한 이미지 분석 API
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from typing import List, Optional
@@ -225,8 +225,8 @@ async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
 
 @app.post("/api/analyze-frame")
 async def analyze_frame_endpoint(file: UploadFile = File(...),
-    brightness: float = 0.0, # 명도 조절
-    exposure_gain: float = 1.0 # 조도/대비 조절
+    brightness: str = Form("0.0"), 
+    exposure_gain: str = Form("1.0")
 ):
     """
     실시간 카메라 프레임 분석
@@ -235,6 +235,16 @@ async def analyze_frame_endpoint(file: UploadFile = File(...),
         contents = await file.read()
         if not contents:
             raise HTTPException(status_code=400, detail="빈 파일입니다.")
+        
+        try:
+            brightness_val = float(brightness)
+            exposure_val = float(exposure_gain)
+        except ValueError:
+            print(f"[ERROR] 잘못된 명도/조도 값이 수신되었습니다. Brightness: {brightness}, Exposure: {exposure_gain}")
+            brightness_val = 0.0
+            exposure_val = 1.0
+        # TODO: 디버그
+        print(f"[DEBUG - FastAPI] Final Brightness Value: {brightness_val}, Exposure Value: {exposure_val}")
         
         try:
             image = Image.open(io.BytesIO(contents))
@@ -247,7 +257,11 @@ async def analyze_frame_endpoint(file: UploadFile = File(...),
 
         result: dict
         processed_image: Image.Image
-        result = analyze_frame(image_array)
+        result = analyze_frame(
+            image_array, 
+            brightness=brightness_val, 
+            exposure_gain=exposure_val
+        )
         encoded_image = result.get("details", {}).get("annotated_image")
         
         saved_result = save_result(
