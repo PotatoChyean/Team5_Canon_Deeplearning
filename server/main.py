@@ -243,9 +243,7 @@ async def analyze_frame_endpoint(file: UploadFile = File(...),
             print(f"[ERROR] 잘못된 명도/조도 값이 수신되었습니다. Brightness: {brightness}, Exposure: {exposure_gain}")
             brightness_val = 0.0
             exposure_val = 1.0
-        # TODO: 디버그
-        print(f"[DEBUG - FastAPI] Final Brightness Value: {brightness_val}, Exposure Value: {exposure_val}")
-        
+            
         try:
             image = Image.open(io.BytesIO(contents))
             if image.mode != 'RGB':
@@ -254,7 +252,9 @@ async def analyze_frame_endpoint(file: UploadFile = File(...),
             raise HTTPException(status_code=400, detail=f"이미지 파일 형식 오류: {str(e)}")
         
         image_array = np.array(image)
-
+        # TODO: 디버그
+        print(f"[DEBUG - FastAPI] Final Brightness Value: {brightness_val}, Exposure Value: {exposure_val}")
+        
         result: dict
         processed_image: Image.Image
         result = analyze_frame(

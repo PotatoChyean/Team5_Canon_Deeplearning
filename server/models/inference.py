@@ -150,7 +150,8 @@ def analyze_image(image: np.ndarray,
         processed_img_bgr = original_img_bgr
         
         brightness_int = int(brightness)
-        
+        # TODO: 디버그
+        print(f"[DEBUG - OpenCV] Original Avg Brightness (R): {np.mean(original_img_bgr[:,:,2]):.2f}")
         # 디폴트 값이 아닐 때 보정
         if brightness_int != 0 or exposure_gain != 1.0:
              processed_img_bgr = cv2.convertScaleAbs(original_img_bgr, 

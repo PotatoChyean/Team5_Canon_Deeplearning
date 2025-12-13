@@ -72,7 +72,7 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
         }
         
         if (stopStream) {
-            stopCameraStream() // 💡 탭 이동/언마운트 시 호출됨
+            stopCameraStream()
         }
 
         setIsRunning(false)
@@ -86,10 +86,7 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
 
     useEffect(() => {
         startCameraStream()
-        
-        // 💡 [수정] 언마운트 시 정리 (재진입 오류 해결의 핵심)
         return () => {
-            // 이 컴포넌트가 언마운트(탭이 바뀔 때)될 때, 스트림을 닫도록 true를 전달
             handleStop(true) 
         }
     }, [startCameraStream, handleStop])
