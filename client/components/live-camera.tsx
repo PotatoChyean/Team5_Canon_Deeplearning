@@ -284,7 +284,7 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
                         className={`flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white font-semibold rounded-lg transition-all shadow-lg shadow-green-500/30 ${!streamRef.current || !!error ? 'opacity-50 cursor-not-allowed' : 'hover:from-green-700 hover:to-emerald-600'}`}
                     >
                         <Play className="w-5 h-5" />
-                        Start Detection
+                        분석 시작
                     </button>
                 ) : (
                     <button
@@ -299,12 +299,12 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
             
             {/* 💡 [복원] 명도/조도 조절 UI (이전 버전 스타일 복원) */}
             <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-                <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">Image Calibration (Pre-Analysis)</h3>
+                <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">이미지 보정</h3>
 
                 {/* 명도 (Brightness) 조절 */}
                 <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-1">
-                        Brightness: <span className="text-foreground font-mono">{brightness}</span>
+                        명도: <span className="text-foreground font-mono">{brightness}</span>
                     </label>
                     <input
                         type="range"
@@ -317,16 +317,16 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
                         disabled={isRunning || !streamRef.current}
                     />
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>Dark ({-BRIGHTNESS_MAX})</span>
-                        <span>Default (0)</span>
-                        <span>Bright ({BRIGHTNESS_MAX})</span>
+                        <span>어둡게 ({-BRIGHTNESS_MAX})</span>
+                        <span>기본 (0)</span>
+                        <span>밝게 ({BRIGHTNESS_MAX})</span>
                     </div>
                 </div>
 
                 {/* 조도/대비 (Exposure/Gain) 조절 */}
                 <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-1">
-                        Exposure/Contrast: <span className="text-foreground font-mono">{exposure.toFixed(1)}</span>
+                        조도: <span className="text-foreground font-mono">{exposure.toFixed(1)}</span>
                     </label>
                     <input
                         type="range"
@@ -339,9 +339,9 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
                         disabled={isRunning || !streamRef.current}
                     />
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>Low ({0.5})</span>
-                        <span>Default (1.0)</span>
-                        <span>High ({EXPOSURE_MAX})</span>
+                        <span>최저 ({0.5})</span>
+                        <span>기본 (1.0)</span>
+                        <span> ({EXPOSURE_MAX})</span>
                     </div>
                 </div>
                 

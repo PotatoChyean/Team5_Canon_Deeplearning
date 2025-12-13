@@ -3,7 +3,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/*TODO: 이미지 입력 및 실시간 탐지 부분 색 이상한거 고쳐야 함*/
 :root { /* 🚨 Light Mode (화이트 모드) - L=1.00 근처 사용 */
   --background: oklch(1 0 0);           /* 배경: 순수 흰색 */
   --foreground: oklch(0.145 0 0);       /* 전경(텍스트): 매우 어둡게 */

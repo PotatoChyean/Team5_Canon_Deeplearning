@@ -220,7 +220,6 @@ export function SummaryAnalytics({ results }: any) {
 
         {/* Bar Chart */}
         {!loading && barData.length > 0 && (
-          //TODO: fail 이유 글자 겹침 -> 간격 늘리기
         <div className="bg-card border border-border rounded-xl p-6">
           <h3 className="text-lg font-semibold text-foreground mb-4">Fail Reasons</h3>
           <ResponsiveContainer width="100%" height={1000}>

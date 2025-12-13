@@ -193,8 +193,6 @@ async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
             image_array = np.array(image)
             result = analyze_image(image_array)
 
-            #TODO: 실시간 이미지 결과창 미리보기 수정
-
             saved_result = save_result(
                 filename=file.filename,
                 status=result["status"],
@@ -252,7 +250,6 @@ async def analyze_frame_endpoint(file: UploadFile = File(...),
             raise HTTPException(status_code=400, detail=f"이미지 파일 형식 오류: {str(e)}")
         
         image_array = np.array(image)
-        # TODO: 디버그
         print(f"[DEBUG - FastAPI] Final Brightness Value: {brightness_val}, Exposure Value: {exposure_val}")
         
         result: dict
