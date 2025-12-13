@@ -342,11 +342,22 @@ def analyze_image(image: np.ndarray,
             "reason": reason,
             "confidence": round(avg_confidence, 2),
             "details": {
-                # ... (중략) ...
+                "product_model": prod,
+                "language": Counter(text_langs).most_common(1)[0][0] if text_langs else None,
+                "model_status": "Pass" if prod else "Fail",
+                "text_count": text_count,
+                
+                # 이전 V1 코드를 참고하여 세분화된 상태 재구성
+                "home_status": cnn_button_status_map.get('Home', 'Fail'),
+                "id_back_status": cnn_button_status_map.get('ID', 'Fail') if found_id else cnn_button_status_map.get('Back', 'Fail'),
+                "status_status": cnn_button_status_map.get('Stat', 'Fail'),
+                "screen_status": "Pass" if found_monitor else "Fail",
+                
+                "yolo_detections": yolo_detections,
+                "cnn_results": cnn_results,
                 "annotated_image": annotated_image_str
             }
         }
-        
         return convert_numpy_types(final_result)
         
     except Exception as e:
