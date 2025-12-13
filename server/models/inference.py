@@ -81,6 +81,8 @@ def classify_model(found_back, found_id, text_langs):
 def convert_numpy_types(data):
     if isinstance(data, dict):
         return {k: convert_numpy_types(v) for k, v in data.items()}
+    if isinstance(data, set):
+        return [convert_numpy_types(i) for i in data]
     if isinstance(data, (list, tuple)):
         return [convert_numpy_types(i) for i in data]
     if isinstance(data, np.integer):

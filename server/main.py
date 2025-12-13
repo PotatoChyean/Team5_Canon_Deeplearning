@@ -19,9 +19,10 @@ import os
 import asyncio
 import base64
 from urllib.parse import quote
+import time
 
 import models.inference as inference_module
-from models.inference import analyze_image, analyze_frame, initialize_models
+from models.inference import analyze_image, analyze_frame, initialize_models, convert_numpy_types
 
 from database.db import save_result, get_statistics, get_results
 
@@ -49,7 +50,12 @@ async def get_model_status():
 analysis_progress = {
     "total_count": 0,
     "completed_count": 0,
-    "is_running": False
+    "is_running": False,
+    "last_processed_info": { 
+        "filename": "N/A",
+        "elapsed_time_sec": 0.0,
+        "status": "Ready"
+    }
 }
 
 @app.get("/api/analysis-progress")
@@ -154,24 +160,33 @@ async def analyze_image_endpoint(file: UploadFile = File(...)):
 @app.post("/api/analyze-batch")
 async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
     global analysis_progress
-    """
-    여러 이미지 파일을 일괄 분석
-    """
+    
     analysis_progress["total_count"] = len(files)
     analysis_progress["completed_count"] = 0
     analysis_progress["is_running"] = True
+    analysis_progress["last_processed_info"] = {
+        "filename": "N/A", 
+        "elapsed_time_sec": 0.0, 
+        "status": "Running"
+    } 
+    
+    await asyncio.sleep(0.01)
     results = []
     
     for file in files:
+        file_result = None
+        elapsed_time = 0.0
+        start_time = time.time()
+        await asyncio.sleep(0.2)
         try:
             contents = await file.read()
-            analysis_progress["completed_count"] += 1
             if not contents:
                 results.append({
                     "filename": file.filename,
                     "status": "ERROR",
                     "reason": "빈 파일입니다.",
-                    "confidence": 0
+                    "confidence": 0,
+                    "elapsed_time": 0.0
                 })
                 continue
 
@@ -181,18 +196,23 @@ async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
                     image = image.convert('RGB')
                     
             except Exception as e:
-                analysis_progress["completed_count"] += 1
                 results.append({
                     "filename": file.filename,
                     "status": "ERROR",
                     "reason": f"이미지 파일 형식 오류: {str(e)}",
-                    "confidence": 0
+                    "confidence": 0,
+                    "elapsed_time": round(elapsed_time, 4)
                 })
                 continue
+            start_time = time.time()
             
             image_array = np.array(image)
-            result = analyze_image(image_array)
-
+            result_raw = analyze_image(image_array)
+            
+            result = convert_numpy_types(result_raw)
+            
+            lapsed_time = time.time() - start_time
+            
             saved_result = save_result(
                 filename=file.filename,
                 status=result["status"],
@@ -207,7 +227,8 @@ async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
                 "reason": result.get("reason"),
                 "confidence": result.get("confidence", 0),
                 "details": result.get("details", {}),
-                "timestamp": saved_result["timestamp"]
+                "timestamp": saved_result["timestamp"],
+                "elapsed_time": round(elapsed_time, 4)
             })
         
         except Exception as e:
@@ -215,8 +236,21 @@ async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
                 "filename": file.filename,
                 "status": "ERROR",
                 "reason": f"처리 실패: {str(e)}",
-                "confidence": 0
+                "confidence": 0,
+                "elapsed_time": round(elapsed_time, 4)
             })
+            
+        finally:
+            analysis_progress["completed_count"] += 1
+            if file_result:
+                analysis_progress["last_processed_info"] = {
+                 "filename": file.filename,
+                 "elapsed_time_sec": file_result.get("elapsed_time", 0.0),
+                 "status": file_result.get("status", "ERROR")
+                }
+                results.append(file_result)
+                
+            analysis_progress["is_running"] = False
     
     return JSONResponse(content={"results": results})
 

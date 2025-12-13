@@ -76,23 +76,10 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 <NavItem icon={<Settings className="w-5 h-5" />} label="환경설정" isCollapsed={isCollapsed} />
                 {/* 다른 NavItem들도 여기에 추가 */}
             </nav>
-
-            {/* 5. 하단 Status 영역: isCollapsed가 false일 때만 보여줍니다. */}
-            {!isCollapsed && (
-                <div className="pt-4 border-t border-sidebar-border">
-                    <p className="text-xs text-muted-foreground mb-4">Status</p>
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                             <span className="text-sm text-sidebar-foreground">System Ready</span>
-                        </div>
-                    </div>
-                </div>
-            )}
             
-            {/* 6. 사이드바 밑 모드 설정 */}
-            <div className="mt-auto p-4 border-t border-sidebar-border">
-                <ThemeToggle />
+            {/* 5. 사이드바 밑 모드 설정 */}
+            <div className="mt-auto pt-4">
+                <ThemeToggle isCollapsed={isCollapsed} />
             </div>
         </aside>
     )

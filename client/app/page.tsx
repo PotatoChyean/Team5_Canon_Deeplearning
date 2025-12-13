@@ -17,6 +17,7 @@ type SidebarTab = "upload" | "live" | "results" | "summary";
 interface SidebarProps {
     isCollapsed: boolean; 
     setIsCollapsed: Dispatch<SetStateAction<boolean>>;
+    lastRunTime: string;
 }
 
 
@@ -26,11 +27,11 @@ export default function Dashboard() {
     const [isProcessing, setIsProcessing] = useState(false)
     const [results, setResults] = useState<any[]>([])
     const [isCollapsed, setIsCollapsed] = useState(false)
-    
+
     // 진행률 관리를 위한 상태
     const [processingCount, setProcessingCount] = useState<number>(0)
     const [totalFiles, setTotalFiles] = useState<number>(0)           
-
+    const [lastRunTime, setLastRunTime] = useState<string>('N/A');
     const paddingClass = isCollapsed ? 'pl-16' : 'pl-64';
 
     // 1. 분석 시작 준비 함수
@@ -47,6 +48,7 @@ export default function Dashboard() {
         setProcessingCount(totalFiles); // 완료 카운트를 총 파일 수로 설정
         setUploadResetKey(prev => prev + 1); // 내부 상태 초기화
         setActiveTab('results'); // 결과 탭으로 자동 전환
+        setLastRunTime(new Date().toLocaleString());
     };
     
 
@@ -66,6 +68,7 @@ export default function Dashboard() {
                     isProcessing={isProcessing} 
                     completedCount={processingCount} 
                     uploadedCount={totalFiles} 
+                    lastRunTime={lastRunTime} //
                 />
                 
                 <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />

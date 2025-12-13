@@ -89,7 +89,7 @@ export function ImageUpload({
                     console.error("Polling 중 오류 발생:", error);
                     if (intervalId) clearInterval(intervalId);
                 }
-            }, 2000); 
+            }, 500); 
         }
         
         return () => {
@@ -107,6 +107,8 @@ export function ImageUpload({
         onAnalysisStart(files.length)
         setProcessingCount(0); // 시작 카운트 초기화
 
+        await new Promise(resolve => setTimeout(resolve, 50));
+
         try {
             const formData = new FormData()
             files.forEach((item) => { 
@@ -123,9 +125,7 @@ export function ImageUpload({
             }
 
             const data = await response.json()
-            
-            // 🚨 최종 완료: Polling이 응답 받기 전에 완료 상태를 잡기 위해 강제 설정
-            setProcessingCount(files.length); 
+            setProcessingCount(files.length);
             
             const results = data.results.map((result: any, index: number) => {
                 const fileItem = files.find(item => item.name === result.filename); 
@@ -238,7 +238,6 @@ export function ImageUpload({
             {files.length > 0 && (
                 <button
                     onClick={handleStartAnalysis}
-                    // ✅ 수정: bg-gradient-to-r from-primary to-accent... 대신 원래 클래스 복원
                     className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-semibold rounded-lg transition-all shadow-lg shadow-blue-500/30"
                 >
                     분석 시작
