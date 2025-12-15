@@ -63,7 +63,7 @@
 
 ### 1️⃣ 전제 조건 (Prerequisites)
 
-* Python **3.10.9**
+* Python **3.10.19**
 * Git
 * CUDA / cuDNN (GPU 가속 사용 시 권장)
 
@@ -92,7 +92,7 @@ source venv/bin/activate
 
 ✅ 방법 2. Conda 사용 
 ```bash
-conda create -n canon_dl python=3.10.9 -y
+conda create -n canon_dl python=3.10.19 -y
 conda activate canon_dl
 
 ⚠️ 주의
