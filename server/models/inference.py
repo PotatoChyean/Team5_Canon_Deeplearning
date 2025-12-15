@@ -258,6 +258,7 @@ def analyze_image(image: np.ndarray,
             confidence_scores.append(conf * 100)
             
         time_cnn_total = time.time() - start_time_cnn_total
+        print(f"[TIME CHECK] CNN 총 추론 시간: {time_cnn_total:.4f} 초")
 
         # --- 5. 7가지 규칙 기반 판정 시작 (V1 원본 로직) ---
         prod, model_err = classify_model(found_back, found_id, text_langs)

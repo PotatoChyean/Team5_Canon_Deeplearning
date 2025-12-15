@@ -6,7 +6,6 @@ YOLO + OCR 모델을 사용한 이미지 분석 API
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from fastapi.background import BackgroundTasks
 from typing import List, Optional
 import uvicorn
 from datetime import datetime
@@ -21,9 +20,6 @@ import asyncio
 import base64
 from urllib.parse import quote
 import time
-import uuid 
-import asyncio
-from typing import Dict, Any
 
 import models.inference as inference_module
 from models.inference import analyze_image, analyze_frame, initialize_models, convert_numpy_types
@@ -33,7 +29,6 @@ from database.db import save_result, get_statistics, get_results
 yolo_model = None
 cnn_model = None
 app = FastAPI(title="Cannon Project API", version="1.0.0")
-frame_analysis_status = {}
 
 # 모델 실행 확인
 @app.get("/api/model_status")
@@ -62,19 +57,6 @@ analysis_progress = {
         "status": "Ready"
     }
 }
-
-# main.py @app.get("/api/analysis-progress") 근처에 추가
-
-@app.get("/api/frame-progress/{frame_id}")
-async def get_frame_progress(frame_id: str):
-    """프론트엔드 Polling 요청에 프레임 분석 진행 상황을 제공"""
-    global frame_analysis_status
-    status_entry = frame_analysis_status.get(frame_id)
-    
-    if status_entry:
-        return JSONResponse(content=status_entry)
-    
-    return JSONResponse(content={"status": "NOT_FOUND", "result": None})
 
 @app.get("/api/analysis-progress")
 async def get_analysis_progress():
@@ -268,75 +250,77 @@ async def analyze_batch_endpoint(files: List[UploadFile] = File(...)):
                 }
                 results.append(file_result)
                 
-    analysis_progress["is_running"] = False
+            analysis_progress["is_running"] = False
+    
     return JSONResponse(content={"results": results})
 
-def analyze_frame_task(frame_id: str, contents: bytes, brightness: str, exposure_gain: str):
-    global frame_analysis_status
+
+@app.post("/api/analyze-frame")
+async def analyze_frame_endpoint(file: UploadFile = File(...),
+    brightness: str = Form("0.0"), 
+    exposure_gain: str = Form("1.0")
+):
+    """
+    실시간 카메라 프레임 분석
+    """
     try:
-        # 1. 명도/조도 파싱
-        brightness_val = float(brightness)
-        exposure_val = float(exposure_gain)
+        contents = await file.read()
+        if not contents:
+            raise HTTPException(status_code=400, detail="빈 파일입니다.")
         
-        # 2. 이미지 처리
-        image = Image.open(io.BytesIO(contents)).convert('RGB')
+        try:
+            brightness_val = float(brightness)
+            exposure_val = float(exposure_gain)
+        except ValueError:
+            print(f"[ERROR] 잘못된 명도/조도 값이 수신되었습니다. Brightness: {brightness}, Exposure: {exposure_gain}")
+            brightness_val = 0.0
+            exposure_val = 1.0
+            
+        try:
+            image = Image.open(io.BytesIO(contents))
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"이미지 파일 형식 오류: {str(e)}")
+        
         image_array = np.array(image)
+        print(f"[DEBUG - FastAPI] Final Brightness Value: {brightness_val}, Exposure Value: {exposure_val}")
         
-        # 3. 모델 추론
-        result_raw = analyze_frame(
+        result: dict
+        processed_image: Image.Image
+        result = analyze_frame(
             image_array, 
             brightness=brightness_val, 
             exposure_gain=exposure_val
         )
-        result = convert_numpy_types(result_raw)
         encoded_image = result.get("details", {}).get("annotated_image")
         
-        # 4. DB 저장 (필요 시)
-        # save_result(...) # 현재는 생략
-        
-        # 5. 🟢 [핵심]: 완료 상태로 업데이트
-        final_result = {
-            **result,
-            "processed_image_b64": encoded_image
-        }
-        
-        frame_analysis_status[frame_id] = {"status": "COMPLETED", "result": final_result}
-        
-    except Exception as e:
-        frame_analysis_status[frame_id] = {"status": "ERROR", "result": {"reason": str(e)}}
-
-@app.post("/api/analyze-frame")
-async def analyze_frame_endpoint(
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    brightness: str = Form("0.0"), 
-    exposure_gain: str = Form("1.0")
-):
-    try:
-        frame_id = str(uuid.uuid4())
-        frame_analysis_status[frame_id] = {"status": "RUNNING", "result": None}
-        
-        contents = await file.read()
-        if not contents:
-            raise HTTPException(status_code=400, detail="빈 파일입니다.")
-            
-        background_tasks.add_task(
-            analyze_frame_task, 
-            frame_id, 
-            contents, 
-            brightness, 
-            exposure_gain
+        saved_result = save_result(
+            filename=f"CAMERA_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}",
+            status=result["status"],
+            reason=result.get("reason"),
+            confidence=result.get("confidence", 0),
+            details=result.get("details", {})
         )
-        
-        return JSONResponse(content={"frame_id": frame_id, "status": "STARTED"})
+
+        return JSONResponse(content={
+            "id": saved_result["id"], 
+            "filename": saved_result["filename"], 
+            "timestamp": saved_result["timestamp"],
+            "status": result["status"],
+            "reason": result.get("reason"),
+            "confidence": result.get("confidence", 0),
+            "details": result.get("details", {}),
+            "processed_image_b64": encoded_image
+        })
     
     except HTTPException:
         raise
     except Exception as e:
         import traceback
-        error_detail = f"프레임 분석 시작 중 오류 발생: {str(e)}\n{traceback.format_exc()}"
-        print(error_detail) 
-        raise HTTPException(status_code=500, detail=f"프레임 분석 시작 중 오류 발생: {str(e)}")
+        error_detail = f"프레임 분석 중 오류 발생: {str(e)}\n{traceback.format_exc()}"
+        print(error_detail)  # 서버 로그에 출력
+        raise HTTPException(status_code=500, detail=f"프레임 분석 중 오류 발생: {str(e)}")
 
 
 @app.get("/api/report")
@@ -421,7 +405,7 @@ async def get_statistics_endpoint(
     """
     분석 결과 통계 조회
     """
-    try:
+    try: # 🚨 [수정]: await asyncio.to_thread를 사용하여 동기 함수를 안전하게 실행
         stats = await asyncio.to_thread(get_statistics, start_date, end_date) 
         return JSONResponse(content=stats)
     except Exception as e:
