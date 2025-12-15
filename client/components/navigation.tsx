@@ -21,14 +21,13 @@ export function Navigation({ activeTab, setActiveTab }: any) {
             icon: <BarChart3 className="w-5 h-5" />
         },
         { 
-            id: "summary", // 🚨 [수정]: analytics 대신 summary 사용
+            id: "summary", 
             label: "분석", 
             icon: <TrendingUp className="w-5 h-5" /> 
         },
     ]
 
     return (
-        // 🚨 [수정]: 배경과 테두리를 CSS 변수로 변경
         <div className="bg-card border-b border-border px-6 py-4 flex gap-6">
             {tabs.map((tab) => (
                 <button
@@ -36,9 +35,7 @@ export function Navigation({ activeTab, setActiveTab }: any) {
                     onClick={() => setActiveTab(tab.id)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         activeTab === tab.id
-                        // 🚨 [수정]: 활성 탭 색상을 Primary CSS 변수로 변경
                         ? "bg-primary text-primary-foreground shadow-lg shadow-blue-500/30"
-                        // 🚨 [수정]: 비활성 탭 텍스트 및 호버 색상을 CSS 변수로 변경
                         : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     } flex items-center`}
                 >

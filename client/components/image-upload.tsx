@@ -12,11 +12,10 @@ type UploadedFileItem = {
     name: string;
 };
 
-// 🚨 [수정]: ImageUploadProps 인터페이스에 누락된 Props 모두 정의
 interface ImageUploadProps {
     setResults: (newResults: any[]) => void;
     onAnalysisStart: (fileCount: number) => void;
-    setProcessingCount: Dispatch<SetStateAction<number>>; // 👈 필수 추가
+    setProcessingCount: Dispatch<SetStateAction<number>>; 
     uploadedCount: number; 
     isProcessing: boolean;
 }
@@ -25,7 +24,7 @@ interface ImageUploadProps {
 export function ImageUpload({ 
     setResults, 
     onAnalysisStart, 
-    setProcessingCount, // 🚨 [수정]: 이 부분을 추가해야 합니다.
+    setProcessingCount, 
     uploadedCount, 
     isProcessing 
 }: ImageUploadProps) {
@@ -67,8 +66,7 @@ export function ImageUpload({
             setFiles((prev) => [...prev, ...filesWithPreview])
         }
     }
-    
-    // 🚨 [추가]: Polling 로직 (useEffect)
+    // Polling 로직 
     useEffect(() => {
         let intervalId: NodeJS.Timeout | null = null;
         
@@ -80,7 +78,7 @@ export function ImageUpload({
 
                     const data = await res.json();
                     
-                    setProcessingCount(data.completed_count); // 부모 상태 업데이트
+                    setProcessingCount(data.completed_count); 
 
                     if (data.completed_count >= uploadedCount) {
                         if (intervalId) clearInterval(intervalId);
@@ -103,9 +101,8 @@ export function ImageUpload({
     const handleStartAnalysis = async () => {
         if (files.length === 0) return
 
-        // 🚨 [핵심]: 분석 시작 전, 부모에 총 파일 수를 알리고 isProcessing=true 트리거
         onAnalysisStart(files.length)
-        setProcessingCount(0); // 시작 카운트 초기화
+        setProcessingCount(0); 
 
         await new Promise(resolve => setTimeout(resolve, 50));
 
@@ -166,20 +163,17 @@ export function ImageUpload({
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                // ✅ 수정: 기존 Tailwind 컬러 대신 시맨틱 클래스 사용 (bg-card/bg-background 사용)
+                
                 className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${isDragging
                     ? "border-primary bg-primary/10"
-                    : "border-border bg-card/30 hover:border-primary" // hover:border-slate-500는 hover:border-primary로 통일
+                    : "border-border bg-card/30 hover:border-primary" 
                     }`}
             >
-                { /* ✅ 수정: text-slate-400 -> text-muted-foreground */ }
+       
                 <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                { /* ✅ 수정: text-white -> text-foreground */ }
                 <h3 className="text-lg font-semibold text-muted-foreground mb-2">이미지 업로드</h3>
-                { /* ✅ 수정: text-slate-400 -> text-muted-foreground */ }
                 <p className="text-muted-foreground mb-6">이미지를 드래그 앤 드롭하거나 파일을 선택하세요</p>
                 <label
-                    // ✅ 수정: bg-primary, hover:bg-primary/90, text-primary-foreground 대신 원래의 클래스 복원
                     className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors cursor-pointer"
                 >
                     이미지 선택
@@ -193,17 +187,17 @@ export function ImageUpload({
                 </label>
             </div>
 
-            {/* File List (Preview 표시) */}
+            {/* File List */}
             {files.length > 0 && (
-                // ✅ 수정: bg-slate-800/50 -> bg-card/50, border-slate-700 -> border-border
+               
                 <div className="bg-card/50 border border-border rounded-xl p-6">
-                { /* ✅ 수정: text-white -> text-foreground */ }
+
                     <h4 className="text-sm font-semibold text-foreground mb-4">Selected Files ({files.length})</h4>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                         {files.map((item, index) => (
                             <div
                                 key={index}
-                                // ✅ 수정: bg-slate-900 -> bg-card, border-slate-700 -> border-border
+                                
                                 className="flex items-center justify-between p-3 bg-card rounded-lg border border-border"
                             >
                                 <div className="flex items-center gap-2">
@@ -215,15 +209,14 @@ export function ImageUpload({
                                             className="w-8 h-8 object-cover rounded"
                                         />
                                     ) : (
-                                        // ✅ 수정: text-blue-400 -> text-primary
+      
                                         <FileIcon className="w-4 h-4 text-primary" />
                                     )}
-                                { /* ✅ 수정: text-slate-300 -> text-card-foreground */ }
+
                                     <span className="text-sm text-card-foreground">{item.name}</span>
                                 </div>
                                 <button
                                     onClick={() => handleRemoveFile(index)}
-                                    // ✅ 수정: text-slate-400 -> text-muted-foreground, hover:text-red-400 -> hover:text-destructive
                                     className="text-muted-foreground hover:text-destructive transition-colors"
                                 >
                                     ✕

@@ -37,7 +37,6 @@ export function SummaryAnalytics({ results }: any) {
         const params = new URLSearchParams()
         if (startDate) params.append("start_date", format(startDate, "yyyy-MM-dd"))
         if (endDate) params.append("end_date", format(endDate, "yyyy-MM-dd"))
-          // TODO: date별 분석 결과 DB 저장 
 
         const response = await fetch(`http://localhost:5000/api/statistics?${params.toString()}`)
         if (response.ok) {
@@ -66,7 +65,6 @@ export function SummaryAnalytics({ results }: any) {
       if (startDate) params.append("start_date", format(startDate, "yyyy-MM-dd"))
       if (endDate) params.append("end_date", format(endDate, "yyyy-MM-dd"))
 
-      // TODO: date별 분석 결과 DB 저장 
 
       const response = await fetch(`http://localhost:5000/api/report?${params.toString()}`)
       if (!response.ok) {

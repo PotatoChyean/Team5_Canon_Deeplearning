@@ -79,7 +79,6 @@ class CNNModel:
         try:
             self.model = ViTClassifier().to(DEVICE)
             # 저장된 state_dict를 직접 로드합니다.
-            # strict=False는 일부 일치하지 않는 키를 무시하도록 허용합니다.
             self.model.load_state_dict(torch.load(self.model_path, map_location=DEVICE), strict=False)
             self.model.eval()
             print(f"CNN 모델 로드 완료: {self.model_path}")
@@ -134,9 +133,5 @@ class CNNModel:
                     return 0.0, False # 예상치 못한 조건
 
         except Exception as e:
-            # 🚨 오류 발생 시 로직이 텍스트 감지인지 버튼 감지인지 알 수 없으므로,
-            # 안전하게 확률 0.0과 False (버튼) 또는 "Error" (텍스트) 반환을 고려할 수 있지만,
-            # 현재는 기존 코드 흐름을 따라 0.0, False를 반환합니다.
             print(f"CNN 예측 오류: {e}")
-            return 0.0, False # 기본 안전값 반환
-
+            return 0.0, False 

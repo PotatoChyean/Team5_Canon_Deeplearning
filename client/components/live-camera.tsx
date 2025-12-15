@@ -3,19 +3,15 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Play, Square } from "lucide-react"
 
-// 사이드바에서 사용하는 슬라이더 컴포넌트가 없으므로 임시로 정의했던 UI를 제거하고,
-// 이전 코드에서 사용했던 HTML input range UI 로직을 사용하겠습니다.
 
 export function LiveCamera({ setIsProcessing, setResults }: any) {
     const [isRunning, setIsRunning] = useState(false)
     const [frameCount, setFrameCount] = useState(0)
     const [isStreamReady, setIsStreamReady] = useState(false)
     
-    // 💡 [통합/복원] 명도(brightness, 0~100) 및 조도/대비(exposure, 0~2.0) 상태 복원
     const BRIGHTNESS_MAX = 50; // 이전 코드의 기준값
     const EXPOSURE_MAX = 2.0; 
     
-    // UI에 맞게 0~100 대신 -50~50, 1.0 기준 상태로 복원
     const [brightness, setBrightness] = useState(0); 
     const [exposure, setExposure] = useState(1.0); 
 
@@ -64,7 +60,6 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
     }, [setIsProcessing])
 
 
-    // 💡 [수정] 모든 정리를 여기서 처리하고, 언마운트 시 항상 스트림을 닫도록 설정
     const handleStop = useCallback((stopStream: boolean) => {
         if (intervalRef.current) {
             clearInterval(intervalRef.current)
@@ -79,10 +74,8 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
         setIsProcessing(false)
         internalFrameCountRef.current = 0
         setFrameCount(0)
-        // 참고: Error 상태는 유지하여 UI에 표시될 수 있게 함
     }, [setIsProcessing])
 
-    // --- Effect: 컴포넌트 마운트 시 스트림 자동 시작 및 언마운트 시 정리 ---
 
     useEffect(() => {
         startCameraStream()
@@ -109,8 +102,6 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
         canvas.width = video.videoWidth
         canvas.height = video.videoHeight
 
-        // CSS 필터는 미리보기에만 적용되므로, 캡처 시에는 프레임을 그대로 캡처하고 
-        // 백엔드로 명도/조도 값을 전달해야 합니다.
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
         canvas.toBlob(async (blob) => {
@@ -119,7 +110,6 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
             try {
                 const formData = new FormData()
                 formData.append("file", blob, "frame.jpg")
-                // 💡 [복원] 명도/조도 값을 백엔드로 전달
                 formData.append("brightness", brightness.toString())
                 formData.append("exposure_gain", exposure.toString()) 
 
@@ -176,7 +166,6 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
         // 1. 백엔드 서버 연결 확인
         setError(null)
         try {
-            // ... (Health Check 로직 유지) ...
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), 3000) 
             
@@ -190,7 +179,6 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
                 throw new Error("서버가 응답하지 않습니다")
             }
         } catch (err: any) {
-             // ... (Error UI 로직 유지) ...
             if (err.name === "AbortError") {
                 setError("백엔드 서버 연결 시간 초과")
                 alert("백엔드 서버에 연결할 수 없습니다 (시간 초과).")
@@ -226,13 +214,9 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
                         playsInline
                         muted
                         className="w-full h-full object-cover"
-                        // 💡 [수정] 명도와 대비(exposure)를 CSS 필터로 적용
                         style={{ filter: `brightness(${(100 + brightness * 2)}%) contrast(${exposure})` }} 
-                        // brightness: 0일 때 100%, 50일 때 200%, -50일 때 0%
                     />
                     <canvas ref={canvasRef} className="hidden" />
-                    
-                    {/* ... (오버레이 및 UI 로직 유지) ... */}
                     
                     {/* 미리보기 화면이 준비되지 않았거나 (에러), 감지 중이 아닐 때의 오버레이 */}
                     {!streamRef.current && !error && (
@@ -288,7 +272,7 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
                     </button>
                 ) : (
                     <button
-                        onClick={() => handleStop(false)} // 감지 중지 시 미리보기는 유지 (false)
+                        onClick={() => handleStop(false)} 
                         className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-pink-500 hover:from-red-700 hover:to-pink-600 text-white font-semibold rounded-lg transition-all shadow-lg shadow-red-500/30"
                     >
                         <Square className="w-5 h-5" />
@@ -297,7 +281,6 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
                 )}
             </div>
             
-            {/* 💡 [복원] 명도/조도 조절 UI (이전 버전 스타일 복원) */}
             <div className="bg-card border border-border rounded-lg p-6 space-y-4">
                 <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">이미지 보정</h3>
 

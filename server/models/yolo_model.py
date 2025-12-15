@@ -13,11 +13,8 @@ class YOLOModel:
     """YOLO 모델 래퍼 클래스"""
     
     def __init__(self, model_path: str = "models/YOLO.pt"):
-        # ... (생략)
         self.model_path = model_path
         self.model = None
-        
-        # 🚨 [핵심 수정]: 클래스 이름을 V2 모델에 맞게 통일
         self.class_names = ['Btn_Home', 'Btn_Back', 'Btn_ID', 'Btn_Stat', 'Monitor', 'Text'] 
         
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -69,8 +66,6 @@ class YOLOModel:
             }
         
         try:
-            # 이미지 경로 또는 numpy array로 예측
-            # numpy array를 임시 파일로 저장하거나 직접 전달
             results = self.model.predict(
                 source=image,
                 conf=conf_threshold,
@@ -87,7 +82,6 @@ class YOLOModel:
                 confidences = r.boxes.conf.cpu().numpy()
                 
                 for (x1, y1, x2, y2), cls_id, conf in zip(boxes, cls_ids, confidences):
-                    # 클래스 이름 매핑 (모델의 클래스 ID를 우리 클래스 이름으로)
                     if cls_id < len(self.class_names):
                         cls_name = self.class_names[int(cls_id)]
                     else:

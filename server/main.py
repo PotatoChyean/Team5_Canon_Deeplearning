@@ -78,7 +78,7 @@ async def startup_event():
     print("모델 초기화 중...")
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     
-    # 모델 경로 설정 (Flask 코드와 동일한 구조)
+    # 모델 경로 설정 
     yolo_path = os.path.join(BASE_DIR, "models", "YOLO.pt")
     cnn_path = os.path.join(BASE_DIR, "models", "CNN_classifier.pt")
 
@@ -153,7 +153,7 @@ async def analyze_image_endpoint(file: UploadFile = File(...)):
     except Exception as e:
         import traceback
         error_detail = f"분석 중 오류 발생: {str(e)}\n{traceback.format_exc()}"
-        print(error_detail)  # 서버 로그에 출력
+        print(error_detail)  # 디버그 위함, 서버 로그에 출력
         raise HTTPException(status_code=500, detail=f"분석 중 오류 발생: {str(e)}")
 
 
@@ -405,7 +405,7 @@ async def get_statistics_endpoint(
     """
     분석 결과 통계 조회
     """
-    try: # 🚨 [수정]: await asyncio.to_thread를 사용하여 동기 함수를 안전하게 실행
+    try:
         stats = await asyncio.to_thread(get_statistics, start_date, end_date) 
         return JSONResponse(content=stats)
     except Exception as e:

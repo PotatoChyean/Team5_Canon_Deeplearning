@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, Dispatch, SetStateAction } from "react"
-// 필요한 컴포넌트 Import
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { Navigation } from "@/components/navigation"
@@ -10,10 +9,8 @@ import { LiveCamera } from "@/components/live-camera"
 import { ResultsGrid } from "@/components/results-grid"
 import { SummaryAnalytics } from "@/components/summary-analytics"
 
-// 사이드바 탭 타입 정의
 type SidebarTab = "upload" | "live" | "results" | "summary";
 
-// SidebarProps 인터페이스 정의 (타입 충돌 방지)
 interface SidebarProps {
     isCollapsed: boolean; 
     setIsCollapsed: Dispatch<SetStateAction<boolean>>;
@@ -30,7 +27,7 @@ export default function Dashboard() {
 
     // 진행률 관리를 위한 상태
     const [processingCount, setProcessingCount] = useState<number>(0)
-    const [totalFiles, setTotalFiles] = useState<number>(0)           
+    const [totalFiles, setTotalFiles] = useState<number>(0)  
     const [lastRunTime, setLastRunTime] = useState<string>('N/A');
     const paddingClass = isCollapsed ? 'pl-16' : 'pl-64';
 
@@ -45,9 +42,9 @@ export default function Dashboard() {
     const handleResultsReady = (newResults: any[]) => {
         setResults(newResults);
         setIsProcessing(false);
-        setProcessingCount(totalFiles); // 완료 카운트를 총 파일 수로 설정
-        setUploadResetKey(prev => prev + 1); // 내부 상태 초기화
-        setActiveTab('results'); // 결과 탭으로 자동 전환
+        setProcessingCount(totalFiles); 
+        setUploadResetKey(prev => prev + 1);
+        setActiveTab('results'); 
         setLastRunTime(new Date().toLocaleString());
     };
     

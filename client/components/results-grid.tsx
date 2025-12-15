@@ -3,20 +3,19 @@
 import { CheckCircle, AlertCircle } from "lucide-react"
 import { useState } from "react"
 
-// [수정 1] 인터페이스 정의
 interface AnalysisResult {
     id: string;
-    name: string; // 파일 업로드 시의 filename
+    name: string; 
     status: string;
     reason?: string;
     confidence: number;
     details: any;
-    file?: File; // 파일 업로드 시에만 존재
+    file?: File;
     processed_image_b64?: string; 
-    imageUrl?: string; // Live Camera 원본 URL (V2 호환성 유지)
+    imageUrl?: string; 
 }
 interface ResultsGridProps {
-    results: AnalysisResult[]; // results가 AnalysisResult 객체의 배열임을 명시합니다.
+    results: AnalysisResult[]; 
 }
 
 
@@ -37,13 +36,8 @@ const StatusDetail = ({ label, status }: { label: string, status: string }) => {
     )
 }
 
-// 💡 [수정 3] 컴포넌트 Props에 위에서 정의한 ResultsGridProps 타입을 적용합니다.
 export function ResultsGrid({ results }: ResultsGridProps) {
-    
-    // 💡 [수정 4] selectedImageResult 상태에 AnalysisResult 타입을 적용합니다.
     const [selectedImageResult, setSelectedImageResult] = useState<AnalysisResult | null>(null)
-
-    // File → Blob URL 생성 함수 
     const getBlobURL = (file: File) => URL.createObjectURL(file)
 
     // 이미지 소스 결정 로직 통일 및 함수 정의 (Base64 우선, Live URL, Blob 순)
@@ -54,11 +48,9 @@ export function ResultsGrid({ results }: ResultsGridProps) {
         if (result.processed_image_b64) {
             return `data:image/jpeg;base64,${result.processed_image_b64}`;
         }
-        // 2. imageUrl (라이브 카메라 원본 URL)
         if (result.imageUrl) {
             return result.imageUrl;
         }
-        // 3. file (파일 업로드 원본 Blob)
         if (result.file) {
             return getBlobURL(result.file);
         }
@@ -91,7 +83,6 @@ export function ResultsGrid({ results }: ResultsGridProps) {
 
             {/* Results Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* 💡 [수정 6] map 인자 타입에 AnalysisResult 타입을 적용합니다. */}
                 {results.map((result: AnalysisResult) => { 
                     const imageSource = getImageSrc(result); 
 

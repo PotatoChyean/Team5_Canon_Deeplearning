@@ -13,16 +13,12 @@ import io
 import os
 import traceback
 import base64
-import cv2 # OpenCV 임포트 유지
+import cv2 
 
-# 외부 모듈 임포트 유지
 from .yolo_model import YOLOModel 
 from .cnn_model import CNNModel
 
-# ============================================================
-# 제품 스펙테이블 및 레이블 (V1 원본 코드와 동일)
-# ... (PRODUCT_SPEC, LANG_LABEL, CLASS_NAMES, CLASS_MAP 유지) ...
-# ============================================================
+
 PRODUCT_SPEC = {
     "FM2-V160-000": {"button": "ID",   "lang": "CN"},
     "FM2-V161-000": {"button": "Back", "lang": None},
@@ -40,13 +36,9 @@ CLASS_MAP = { 0: 'Home', 1: 'Back', 2: 'ID', 3: 'Stat', 4: 'Monitor_Small',
               5: 'Monitor_Big', 6: 'sticker', 7: 'Text'
 }
 
-# 전역 모델 인스턴스
 yolo_model = None
 cnn_model = None
 
-# ============================================================
-# 제품 모델 자동 분류 함수 (V1 원본 코드와 동일)
-# ============================================================
 def classify_model(found_back, found_id, text_langs):
     # (1) 텍스트 언어 결정
     if len(text_langs) == 0:
@@ -76,7 +68,7 @@ def classify_model(found_back, found_id, text_langs):
         return None, "UnknownModel" # 실패
 
 # ============================================================
-# NumPy 타입 변환 함수 (V1 원본 코드와 동일)
+# NumPy 타입 변환 함수 
 # ============================================================
 def convert_numpy_types(data):
     if isinstance(data, dict):
@@ -94,7 +86,7 @@ def convert_numpy_types(data):
     return data
 
 # ============================================================
-# 모델 초기화 함수 (V1 원본 코드와 동일)
+# 모델 초기화 함수 
 # ============================================================
 def initialize_models(
     yolo_path: str = "models/YOLO.pt",
@@ -123,7 +115,7 @@ def initialize_models(
     return yolo_model, cnn_model
 
 # ============================================================
-# 이미지 분석 메인 함수 (명도/조도 적용 로직 추가)
+# 이미지 분석 메인 함수
 # ============================================================
 def analyze_image(image: np.ndarray, 
     # 💡 [수정] 명도/조도 인수를 받도록 시그니처 수정
@@ -148,7 +140,7 @@ def analyze_image(image: np.ndarray,
             
         original_img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
         
-        # BGR 포맷으로 변환 (OpenCV 처리를 위해)
+        # BGR 포맷으로 변환 (OpenCV 처리를 위함)
         processed_img_bgr = original_img_bgr
         
         brightness_int = int(brightness)
@@ -242,7 +234,7 @@ def analyze_image(image: np.ndarray,
             # --- 4. 시각화 데이터 준비 (명도/조도 적용된 draw_img에 그리기) ---
             final_label = f"{base_cls} {current_status or ''}".strip()
             
-            # 색상 결정 (V1 원본 로직 유지)
+            # 색상 결정
             if current_status == 'Pass': color = (0, 255, 0) # Green (BGR)
             elif current_status == 'Fail': color = (0, 0, 255) # Red (BGR)
             else: color = (0, 200, 255) # Default (Cyan/Yellow) (BGR)
@@ -260,11 +252,10 @@ def analyze_image(image: np.ndarray,
         time_cnn_total = time.time() - start_time_cnn_total
         print(f"[TIME CHECK] CNN 총 추론 시간: {time_cnn_total:.4f} 초")
 
-        # --- 5. 7가지 규칙 기반 판정 시작 (V1 원본 로직) ---
+        # --- 5. 7가지 규칙 기반 판정 시작 ---
         prod, model_err = classify_model(found_back, found_id, text_langs)
         fails = []
-        
-        # ... (이하 7단계 판정 로직 유지) ...
+
         # 1. 필수 요소 확인 (Rule A)
         if not found_home: fails.append("Home Missing")
         if not found_stat: fails.append("Stat Missing")
@@ -314,11 +305,11 @@ def analyze_image(image: np.ndarray,
         
         # --- 7. 최종 결과 이미지에 요약 정보 추가 (명도/조도 적용된 draw_img에 그리기) ---
         
-        # 제품명 표시 (V1 main 로직)
+        # 제품명 표시 
         title = prod if prod else "UNKNOWN"
         cv2.putText(draw_img, title, (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2) # BGR: Cyan/Yellow
 
-        # 최종 상태 표시 (V1 main 로직)
+        # 최종 상태 표시
         if is_pass:
             status_color = (0, 255, 0) # Green
             cv2.putText(draw_img, "PASS", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1.0, status_color, 3)
