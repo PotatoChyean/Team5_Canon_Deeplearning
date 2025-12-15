@@ -5,8 +5,8 @@
 
 ### Deeplearning-based Quality Inspection System
 
-본 프로젝트는 **YOLO (You Only Look Once)** 및 **ViT/CNN 기반 딥러닝 모델**을 활용하여
-**캐논 복합기 제품의 품질 검사 기준(PASS / FAIL)**에 따라 불량 여부를 자동으로 판별하는
+본 프로젝트는 YOLO (You Only Look Once) 및 ViT/CNN 기반 딥러닝 모델을 활용하여
+캐논 복합기 제품의 품질 검사 기준(PASS / FAIL)에 따라 불량 여부를 자동으로 판별하는
 **지능형 품질 검사 시스템**입니다.
 
 **FastAPI 기반의 고성능 Backend 서버**와
