@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { Play, Square } from "lucide-react"
 
 
-export function LiveCamera({ setIsProcessing, setResults }: any) {
+export function LiveCamera({ setIsProcessing, setResults, onDownload }: any) {
     const [isRunning, setIsRunning] = useState(false)
     const [frameCount, setFrameCount] = useState(0)
     const [isStreamReady, setIsStreamReady] = useState(false)
@@ -83,6 +83,32 @@ export function LiveCamera({ setIsProcessing, setResults }: any) {
             handleStop(true) 
         }
     }, [startCameraStream, handleStop])
+
+
+ 
+    const handleDownloadImage = (imageUrl: string, fileName: string) => {
+        try {
+            if (!imageUrl) {
+                console.error("다운로드할 이미지 URL이 없습니다.");
+                alert("다운로드할 이미지가 없습니다.");
+                return;
+            }
+
+            // <a> 태그를 동적으로 생성하여 다운로드 트리거
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            link.download = fileName; // 파일 이름 설정
+
+            // DOM에 추가 후 클릭하여 다운로드 시작, 바로 제거
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+        } catch (error) {
+            console.error("이미지 다운로드 오류:", error);
+            alert("이미지 다운로드에 실패했습니다.");
+        }
+    };
     
     // --- 프레임 캡처 및 분석 함수 ---
     

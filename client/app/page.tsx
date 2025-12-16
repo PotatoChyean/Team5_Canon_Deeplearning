@@ -47,6 +47,25 @@ export default function Dashboard() {
         setActiveTab('results'); 
         setLastRunTime(new Date().toLocaleString());
     };
+
+    const handleDownloadImage = (imageUrl: string, fileName: string) => {
+        // ... LiveCamera.tsx에 추가한 handleDownloadImage 내용 복사 (또는 유틸리티에서 가져오기) ...
+        try {
+            if (!imageUrl) return;
+
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            link.download = fileName;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+        } catch (error) {
+            console.error("이미지 다운로드 오류:", error);
+            alert("이미지 다운로드에 실패했습니다.");
+        }
+    };
     
 
     return (
